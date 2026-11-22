@@ -735,7 +735,19 @@ const SHIFT_TABS = {
 };
 
 class ShiftAnalyzer {
-    static resolveDates(items, meta) {
+    static resolveDates(items, meta = {}) {
+        const normalizeDateDisplay = (dStr) => {
+            if (!dStr) return '';
+            const parts = dStr.trim().split(/[-/.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) { // YYYY-MM-DD -> DD-MM-YYYY
+                    return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+                }
+                return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+            }
+            return dStr;
+        };
+
         let uniqueDates = [...new Set(items.map(i => i.date).filter(d => d && /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(d.trim())))];
         uniqueDates.sort((a, b) => {
             const parseDateObj = (dStr) => {
@@ -752,13 +764,17 @@ class ShiftAnalyzer {
             return parseDateObj(a) - parseDateObj(b);
         });
 
+        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
         let day1 = uniqueDates[0] || meta.startDate || '';
-        let day2 = uniqueDates[1] || meta.endDate || '';
+        let day2 = isMultiDay 
+            ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') 
+            : (uniqueDates[1] || meta.endDate || '');
+
         if (meta.startDate && !day1) day1 = meta.startDate;
         if (meta.endDate && !day2 && meta.endDate !== day1) day2 = meta.endDate;
 
-        // If day2 is not yet present (e.g. single day fetched), infer the next calendar day
-        if (day1 && (!day2 || day2 === day1)) {
+        // If day2 is not yet present and NOT multi-day (e.g. single day fetched), infer the next calendar day
+        if (!isMultiDay && day1 && (!day2 || day2 === day1)) {
             const parts = day1.split(/[-/.]/);
             if (parts.length === 3) {
                 const d1Obj = parts[0].length === 4
@@ -772,15 +788,40 @@ class ShiftAnalyzer {
             }
         }
 
-        return { day1, day2, allDates: uniqueDates };
+        day1 = normalizeDateDisplay(day1);
+        day2 = normalizeDateDisplay(day2);
+
+        return { day1, day2, allDates: uniqueDates, isMultiDay };
     }
 
     static filterItems(items, tab, cutoffHour, dates) {
-        const { day1, day2 } = dates;
+        const { day1, day2, isMultiDay } = dates;
+        const isRangeMode = isMultiDay || (dates.allDates && dates.allDates.length > 2);
+
+        const normDate = (d) => {
+            if (!d) return '';
+            const p = d.trim().split(/[-/.]/);
+            if (p.length === 3) {
+                if (p[0].length === 4) return `${p[2].padStart(2, '0')}-${p[1].padStart(2, '0')}-${p[0]}`;
+                return `${p[0].padStart(2, '0')}-${p[1].padStart(2, '0')}-${p[2]}`;
+            }
+            return d;
+        };
+
+        const nDay1 = normDate(day1);
+        const nDay2 = normDate(day2);
 
         return items.filter(item => {
-            const isDay1 = item.date === day1;
-            const isDay2 = day2 ? item.date === day2 : false;
+            if (isRangeMode) {
+                // In multi-day mode, both actual_shift and all_report mean the full period
+                if (tab === SHIFT_TABS.ACTUAL_SHIFT || tab === SHIFT_TABS.ALL_REPORT) {
+                    return true;
+                }
+            }
+
+            const itemDate = normDate(item.date);
+            const isDay1 = itemDate === nDay1;
+            const isDay2 = nDay2 ? itemDate === nDay2 : false;
             const isBeforeCutoff = item.hour < cutoffHour;
             const isAfterOrAtCutoff = item.hour >= cutoffHour;
 
@@ -3733,6 +3774,26 @@ class App {
             });
         });
 
+        // Multi-Day Quick Period Jump Navigation
+        const jumpDaily = document.getElementById('btn-jump-daily-analysis');
+        if (jumpDaily) {
+            jumpDaily.addEventListener('click', () => {
+                document.getElementById('section-daily-analysis')?.scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+        const jumpItems = document.getElementById('btn-jump-items-table');
+        if (jumpItems) {
+            jumpItems.addEventListener('click', () => {
+                document.getElementById('section-items-table')?.scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+        const jumpInvoices = document.getElementById('btn-jump-invoices-table');
+        if (jumpInvoices) {
+            jumpInvoices.addEventListener('click', () => {
+                document.getElementById('section-invoices-table')?.scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+
         // Cutoff hour selector
         const cutoffSelect = document.getElementById('cutoff-hour-select');
         if (cutoffSelect) {
@@ -4416,49 +4477,147 @@ class App {
         });
 
         // Update Overview Banner at the top of the dashboard
+        const badgeEl = document.getElementById('shift-banner-badge');
         const titleEl = document.getElementById('shift-banner-title');
         const descEl = document.getElementById('shift-banner-desc');
         const invEl = document.getElementById('shift-banner-invoices');
         const exclEl = document.getElementById('shift-banner-excluded');
         const dawnEl = document.getElementById('shift-banner-dawn');
+        const charityBannerEl = document.getElementById('shift-banner-charity');
+        const returnsBannerEl = document.getElementById('shift-banner-returns');
 
-        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2);
+        const card1Label = document.getElementById('shift-banner-card1-label');
+        const card2Label = document.getElementById('shift-banner-card2-label');
+        const card3Label = document.getElementById('shift-banner-card3-label');
+        const card4Label = document.getElementById('shift-banner-card4-label');
+        const card5Label = document.getElementById('shift-banner-card5-label');
+
+        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2) || dates.isMultiDay;
+        const daysCount = dates.allDates && dates.allDates.length > 0 ? dates.allDates.length : 1;
         const cutoffStr = String(this.cutoffHour).padStart(2, '0') + ':00 ص';
 
-        if (titleEl) {
-            titleEl.textContent = isRange
-                ? `تقرير مبيعات الفترة المجمعة من ${dates.day1} إلى ${dates.day2} (${dates.allDates ? dates.allDates.length : 'متعدد'} أيام)`
-                : `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
-        }
-        if (descEl) {
-            if (isRange) {
+        // Compute KPIs for actual shift items and all period items
+        const actualItems = ShiftAnalyzer.filterItems(this.parsedData.items, SHIFT_TABS.ACTUAL_SHIFT, this.cutoffHour, dates);
+        const actualKPIs = ShiftAnalyzer.computeKPIs(actualItems);
+
+        const allItems = this.parsedData.items;
+        const allKPIs = ShiftAnalyzer.computeKPIs(allItems);
+
+        // Tab buttons and jump pills elements
+        const tabActual = document.getElementById('btn-shift-actual_shift');
+        const tabDay1 = document.getElementById('btn-shift-day1_only');
+        const tabDawn = document.getElementById('btn-shift-day2_dawn');
+        const tabExcl = document.getElementById('btn-shift-day1_excluded');
+        const labelActual = document.getElementById('label-shift-actual');
+        const labelAll = document.getElementById('label-shift-all');
+        const jumpDaily = document.getElementById('btn-jump-daily-analysis');
+        const jumpItems = document.getElementById('btn-jump-items-table');
+        const jumpInvoices = document.getElementById('btn-jump-invoices-table');
+
+        if (isRange) {
+            // ================= MULTI-DAY RANGE MODE =================
+            if (badgeEl) {
+                badgeEl.textContent = `تقرير فترة مجمعة (${daysCount} يوم) ✓`;
+                badgeEl.className = 'text-xs bg-indigo-500 text-white font-bold px-2.5 py-0.5 rounded-full shadow-xs transition-all';
+            }
+            if (titleEl) {
+                titleEl.textContent = `تقرير مبيعات الفترة المجمعة من ${dates.day1} إلى ${dates.day2} (${daysCount} يوماً)`;
+            }
+            if (descEl) {
                 descEl.innerHTML = `
                     تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${dates.day1}</span> و <span class="font-bold underline text-white">${dates.day2}</span>.
-                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${dates.allDates ? dates.allDates.length : 0}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>
+                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${daysCount}</strong> يوم | إجمالي الفواتير: <strong>${allKPIs.invoiceCount}</strong> فاتورة | متوسط المبيعات اليومية: <strong>${Math.round(allKPIs.netSales / daysCount).toLocaleString('ar-EG')} ج.م</strong>.</span>
                 `;
-            } else {
+            }
+
+            if (card1Label) card1Label.textContent = 'إجمالي الفواتير';
+            if (invEl) invEl.textContent = allKPIs.invoiceCount;
+
+            if (card2Label) card2Label.textContent = 'إجمالي فلوس الخير';
+            if (charityBannerEl) {
+                charityBannerEl.textContent = `${allKPIs.charityAmount.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+            }
+
+            if (card3Label) card3Label.textContent = 'إجمالي المرتجعات';
+            if (returnsBannerEl) {
+                returnsBannerEl.textContent = `${allKPIs.returnsTotal.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م (${allKPIs.returnsQty} ق)`;
+            }
+
+            if (card4Label) card4Label.textContent = 'متوسط المبيعات / يوم';
+            if (exclEl) {
+                exclEl.textContent = `${Math.round(allKPIs.netSales / daysCount).toLocaleString('ar-EG')} ج.م`;
+                exclEl.className = 'font-black text-sm text-amber-300 font-mono';
+            }
+
+            if (card5Label) card5Label.textContent = 'معدل الفواتير / يوم';
+            if (dawnEl) {
+                dawnEl.textContent = `${(allKPIs.invoiceCount / daysCount).toFixed(1)} ف/يوم`;
+                dawnEl.className = 'font-black text-sm text-emerald-300 font-mono';
+            }
+
+            // Hide dawn crossover tabs in range mode
+            if (tabActual) tabActual.classList.add('hidden');
+            if (tabDay1) tabDay1.classList.add('hidden');
+            if (tabDawn) tabDawn.classList.add('hidden');
+            if (tabExcl) tabExcl.classList.add('hidden');
+
+            if (labelAll) labelAll.textContent = `📊 إجمالي مبيعات الفترة بالكامل (${daysCount} يوم)`;
+            if (jumpDaily) jumpDaily.classList.remove('hidden');
+            if (jumpItems) jumpItems.classList.remove('hidden');
+            if (jumpInvoices) jumpInvoices.classList.remove('hidden');
+
+        } else {
+            // ================= SINGLE SHIFT MODE =================
+            if (badgeEl) {
+                badgeEl.textContent = 'الشيفت الفعلي المكتمل ✓';
+                badgeEl.className = 'text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full transition-all';
+            }
+            if (titleEl) {
+                titleEl.textContent = `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
+            }
+            if (descEl) {
                 descEl.innerHTML = `
                     تشمل مبيعات وردية <span class="font-bold underline text-white">${dates.day1}</span> من الساعة <strong>${cutoffStr}</strong> حتى 12:00 منتصف الليل + سهرة فجر <span class="font-bold underline text-white">${dates.day2}</span> حتى <strong>${cutoffStr}</strong>.
                     <span class="block mt-0.5 text-blue-200">تم استبعاد <strong>${counts[SHIFT_TABS.DAY1_EXCLUDED] || 0}</strong> فاتورة تخص سهرة أمس تلقائياً.</span>
                 `;
             }
-        }
-        if (invEl) invEl.textContent = isRange ? (counts[SHIFT_TABS.ALL_REPORT] || 0) : (counts[SHIFT_TABS.ACTUAL_SHIFT] || 0);
-        if (exclEl) exclEl.textContent = counts[SHIFT_TABS.DAY1_EXCLUDED] || 0;
-        if (dawnEl) dawnEl.textContent = counts[SHIFT_TABS.DAY2_DAWN] || 0;
 
-        const charityBannerEl = document.getElementById('shift-banner-charity');
-        if (charityBannerEl) {
-            const actualItems = ShiftAnalyzer.filterItems(this.parsedData.items, SHIFT_TABS.ACTUAL_SHIFT, this.cutoffHour, dates);
-            const actualKPIs = ShiftAnalyzer.computeKPIs(actualItems);
-            charityBannerEl.textContent = `${actualKPIs.charityAmount.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
-        }
+            if (card1Label) card1Label.textContent = 'فواتير الشيفت';
+            if (invEl) invEl.textContent = counts[SHIFT_TABS.ACTUAL_SHIFT] || 0;
 
-        const returnsBannerEl = document.getElementById('shift-banner-returns');
-        if (returnsBannerEl) {
-            const actualItems = ShiftAnalyzer.filterItems(this.parsedData.items, SHIFT_TABS.ACTUAL_SHIFT, this.cutoffHour, dates);
-            const actualKPIs = ShiftAnalyzer.computeKPIs(actualItems);
-            returnsBannerEl.textContent = `${actualKPIs.returnsTotal.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م (${actualKPIs.returnsQty} ق)`;
+            if (card2Label) card2Label.textContent = 'فلوس الخير';
+            if (charityBannerEl) {
+                charityBannerEl.textContent = `${actualKPIs.charityAmount.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+            }
+
+            if (card3Label) card3Label.textContent = 'المرتجعات';
+            if (returnsBannerEl) {
+                returnsBannerEl.textContent = `${actualKPIs.returnsTotal.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م (${actualKPIs.returnsQty} ق)`;
+            }
+
+            if (card4Label) card4Label.textContent = 'سهرة أمس';
+            if (exclEl) {
+                exclEl.textContent = counts[SHIFT_TABS.DAY1_EXCLUDED] || 0;
+                exclEl.className = 'font-black text-sm text-rose-300 font-mono';
+            }
+
+            if (card5Label) card5Label.textContent = 'سهرة فجر 2';
+            if (dawnEl) {
+                dawnEl.textContent = counts[SHIFT_TABS.DAY2_DAWN] || 0;
+                dawnEl.className = 'font-black text-sm text-emerald-300 font-mono';
+            }
+
+            // Restore shift tabs for single shift mode
+            if (tabActual) tabActual.classList.remove('hidden');
+            if (tabDay1) tabDay1.classList.remove('hidden');
+            if (tabDawn) tabDawn.classList.remove('hidden');
+            if (tabExcl) tabExcl.classList.remove('hidden');
+
+            if (labelActual) labelActual.textContent = '⭐ الشيفت الفعلي (شامل بعد 12 بالليل)';
+            if (labelAll) labelAll.textContent = 'إجمالي التقرير بالكامل (الخام)';
+            if (jumpDaily) jumpDaily.classList.add('hidden');
+            if (jumpItems) jumpItems.classList.add('hidden');
+            if (jumpInvoices) jumpInvoices.classList.add('hidden');
         }
     }
 
@@ -5029,6 +5188,21 @@ class App {
         const items = this.currentViewData.itemsAggregated || [];
         const fmt = (num) => (Number(num) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        const dates = this.currentViewData.dates || {};
+        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2) || dates.isMultiDay;
+        const daysCount = (dates.allDates && dates.allDates.length > 0) ? dates.allDates.length : 1;
+
+        const sectionTitle = document.getElementById('analysis-section-title');
+        const sectionBadge = document.getElementById('analysis-section-badge');
+        if (sectionTitle) {
+            sectionTitle.textContent = isRange
+                ? `التحليل التنفيذي الذكي لأداء الفترة (${daysCount} يوم)`
+                : `التحليل التنفيذي الذكي لأداء اليوم والوردية`;
+        }
+        if (sectionBadge) {
+            sectionBadge.textContent = isRange ? `مؤشرات فترة مجمعة` : `تحليل ذكي ومؤشرات أداء`;
+        }
+
         // 1. Peak Sales Hour
         let peakHour = null;
         let maxSales = -1;
@@ -5104,18 +5278,33 @@ class App {
                 const topItem = items.length > 0 ? [...items].sort((a, b) => b.totalSales - a.totalSales)[0] : null;
                 const marginQuality = kpis.profitMargin >= 30 ? 'ممتاز وقوي' : (kpis.profitMargin >= 20 ? 'جيد ومستقر' : 'منخفض نسبياً ويتطلب مراجعة التكاليف');
                 
-                narrativeEl.innerHTML = `
-                    سجلت الوردية صافي مبيعات قدره <strong>${fmt(kpis.netSales)} ج.م</strong> من خلال <strong>${kpis.invoiceCount}</strong> فاتورة بإجمالي <strong>${kpis.totalQty}</strong> قطعة مباعة. 
-                    بلغ صافي الربح المحقق <strong>${fmt(kpis.netProfit)} ج.م</strong> بهامش ربح <strong>${kpis.profitMargin}%</strong> (${marginQuality}).
-                    ${topItem ? `تصدر صنف <span class="font-bold text-blue-700">"${topItem.name}"</span> قائمة المبيعات بمساهمة قدرها <strong>${topItem.salesShare}%</strong> من إجمالي دخل الشيفت.` : ''}
-                    بلغت مبيعات كاش الدرج <strong>${fmt(kpis.drawerSales)} ج.م</strong>، وبلغ نصيب فلوس الخير المخصصة <strong>${fmt(kpis.charityAmount)} ج.م</strong> محسوبة بواقع 5 جنيه لكل قطعة مباعة.
-                `;
+                if (isRange) {
+                    const avgDaily = Math.round(kpis.netSales / daysCount);
+                    narrativeEl.innerHTML = `
+                        سجلت الفترة المجمعة صافي مبيعات إجمالي قدره <strong>${fmt(kpis.netSales)} ج.م</strong> عبر <strong>${daysCount}</strong> يوم عمل بمتوسط مبيعات يومية <strong>${fmt(avgDaily)} ج.م/يوم</strong> من خلال <strong>${kpis.invoiceCount}</strong> فاتورة بإجمالي <strong>${kpis.totalQty}</strong> قطعة مباعة. 
+                        بلغ صافي الربح المحقق <strong>${fmt(kpis.netProfit)} ج.م</strong> بهامش ربح <strong>${kpis.profitMargin}%</strong> (${marginQuality}).
+                        ${topItem ? `تصدر صنف <span class="font-bold text-blue-700">"${topItem.name}"</span> قائمة المبيعات بمساهمة قدرها <strong>${topItem.salesShare}%</strong> من إجمالي مبيعات الفترة.` : ''}
+                        بلغت مبيعات كاش الدرج <strong>${fmt(kpis.drawerSales)} ج.م</strong> ومبيعات البنك <strong>${fmt(kpis.bankSales)} ج.م</strong>، وبلغ نصيب فلوس الخير المخصصة <strong>${fmt(kpis.charityAmount)} ج.م</strong> بواقع 5 جنيه لكل قطعة مباعة.
+                    `;
+                } else {
+                    narrativeEl.innerHTML = `
+                        سجلت الوردية صافي مبيعات قدره <strong>${fmt(kpis.netSales)} ج.م</strong> من خلال <strong>${kpis.invoiceCount}</strong> فاتورة بإجمالي <strong>${kpis.totalQty}</strong> قطعة مباعة. 
+                        بلغ صافي الربح المحقق <strong>${fmt(kpis.netProfit)} ج.م</strong> بهامش ربح <strong>${kpis.profitMargin}%</strong> (${marginQuality}).
+                        ${topItem ? `تصدر صنف <span class="font-bold text-blue-700">"${topItem.name}"</span> قائمة المبيعات بمساهمة قدرها <strong>${topItem.salesShare}%</strong> من إجمالي دخل الشيفت.` : ''}
+                        بلغت مبيعات كاش الدرج <strong>${fmt(kpis.drawerSales)} ج.م</strong>، وبلغ نصيب فلوس الخير المخصصة <strong>${fmt(kpis.charityAmount)} ج.م</strong> محسوبة بواقع 5 جنيه لكل قطعة مباعة.
+                    `;
+                }
             }
         }
     }
 
     renderCharts() {
         if (!this.currentViewData) return;
+        const topTitle = document.getElementById('chart-top-items-title');
+        if (topTitle) {
+            const isRange = this.lastFetchedDateMode === 'range' || (this.currentViewData?.dates?.allDates && this.currentViewData.dates.allDates.length > 2) || this.currentViewData?.dates?.isMultiDay;
+            topTitle.textContent = isRange ? 'أعلى 10 أصناف أداءً في الفترة' : 'أعلى 10 أصناف أداءً في الشيفت';
+        }
         this.charts.renderHourly('chart-hourly', this.currentViewData.hourlyData);
         this.charts.renderTopItems('chart-top-items', this.currentViewData.itemsAggregated, this.topItemsMetric);
         this.charts.renderPaymentBreakdown('chart-payment-breakdown', this.currentViewData.kpis);

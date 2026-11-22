@@ -627,7 +627,7 @@
             <div id="shift-summary-banner" class="bg-gradient-to-l from-blue-700 via-indigo-700 to-blue-800 text-white rounded-2xl p-4 sm:p-5 shadow-md border border-blue-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 no-print">
                 <div class="space-y-1">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full">الشيفت الفعلي المكتمل ✓</span>
+                        <span id="shift-banner-badge" class="text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full transition-all">الشيفت الفعلي المكتمل ✓</span>
                         <span id="shift-banner-title" class="text-base sm:text-lg font-black">وردية الشيفت الممتدة بعد 12 بالليل</span>
                     </div>
                     <p id="shift-banner-desc" class="text-xs text-blue-100">
@@ -636,23 +636,23 @@
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs w-full md:w-auto">
                     <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
-                        <span class="block text-[10px] text-blue-200">فواتير الشيفت</span>
+                        <span id="shift-banner-card1-label" class="block text-[10px] text-blue-200">فواتير الشيفت</span>
                         <span id="shift-banner-invoices" class="font-black text-sm text-white font-mono">0</span>
                     </div>
                     <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
-                        <span class="block text-[10px] text-emerald-200">فلوس الخير</span>
+                        <span id="shift-banner-card2-label" class="block text-[10px] text-emerald-200">فلوس الخير</span>
                         <span id="shift-banner-charity" class="font-black text-sm text-emerald-300 font-mono">0.00 ج.م</span>
                     </div>
                     <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
-                        <span class="block text-[10px] text-rose-200">المرتجعات</span>
+                        <span id="shift-banner-card3-label" class="block text-[10px] text-rose-200">المرتجعات</span>
                         <span id="shift-banner-returns" class="font-black text-sm text-rose-300 font-mono">0.00 ج.م</span>
                     </div>
                     <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
-                        <span class="block text-[10px] text-blue-200">سهرة أمس</span>
+                        <span id="shift-banner-card4-label" class="block text-[10px] text-blue-200">سهرة أمس</span>
                         <span id="shift-banner-excluded" class="font-black text-sm text-rose-300 font-mono">0</span>
                     </div>
                     <div class="col-span-2 sm:col-span-1 bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
-                        <span class="block text-[10px] text-blue-200">سهرة فجر 2</span>
+                        <span id="shift-banner-card5-label" class="block text-[10px] text-blue-200">سهرة فجر 2</span>
                         <span id="shift-banner-dawn" class="font-black text-sm text-emerald-300 font-mono">0</span>
                     </div>
                 </div>
@@ -660,26 +660,37 @@
 
             <!-- Shift Filter Tabs (التبويبات الـ 5 الفورية - تدفق لمس سلس للموبايل) -->
             <div class="no-print">
-                <div class="flex overflow-x-auto no-scrollbar gap-2 p-1.5 bg-slate-200/80 rounded-2xl scroll-smooth">
-                    <button data-shift-tab="actual_shift" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs whitespace-nowrap">
-                        <span>⭐ الشيفت الفعلي (شامل بعد 12 بالليل)</span>
+                <div id="container-shift-tabs" class="flex overflow-x-auto no-scrollbar gap-2 p-1.5 bg-slate-200/80 rounded-2xl scroll-smooth">
+                    <button id="btn-shift-actual_shift" data-shift-tab="actual_shift" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs whitespace-nowrap">
+                        <span id="label-shift-actual">⭐ الشيفت الفعلي (شامل بعد 12 بالليل)</span>
                         <span id="badge-count-actual_shift" class="bg-white/25 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="all_report" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
-                        <span>إجمالي التقرير بالكامل (الخام)</span>
+                    <button id="btn-shift-all_report" data-shift-tab="all_report" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
+                        <span id="label-shift-all">إجمالي التقرير بالكامل (الخام)</span>
                         <span id="badge-count-all_report" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day1_only" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
+                    <button id="btn-shift-day1_only" data-shift-tab="day1_only" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
                         <span>مبيعات تاريخ اليوم الأول فقط</span>
                         <span id="badge-count-day1_only" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day2_dawn" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
+                    <button id="btn-shift-day2_dawn" data-shift-tab="day2_dawn" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
                         <span>سهرة بعد 12 بالليل فقط (فجر 2)</span>
                         <span id="badge-count-day2_dawn" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day1_excluded" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-rose-700 hover:bg-rose-50 whitespace-nowrap">
+                    <button id="btn-shift-day1_excluded" data-shift-tab="day1_excluded" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-rose-700 hover:bg-rose-50 whitespace-nowrap">
                         <span>فواتير فجر الأمس المستبعدة</span>
                         <span id="badge-count-day1_excluded" class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
+                    </button>
+
+                    <!-- Multi-Day Period Direct Nav Pills (ملاحة سريعة لتقرير الفترة) -->
+                    <button id="btn-jump-daily-analysis" type="button" class="hidden shrink-0 items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-white/80 text-indigo-700 hover:bg-white shadow-xs whitespace-nowrap border border-indigo-200">
+                        <span>📅 المبيعات اليومية</span>
+                    </button>
+                    <button id="btn-jump-items-table" type="button" class="hidden shrink-0 items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-white/80 text-indigo-700 hover:bg-white shadow-xs whitespace-nowrap border border-indigo-200">
+                        <span>🏆 الأصناف المباعة</span>
+                    </button>
+                    <button id="btn-jump-invoices-table" type="button" class="hidden shrink-0 items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-white/80 text-indigo-700 hover:bg-white shadow-xs whitespace-nowrap border border-indigo-200">
+                        <span>🧾 سجل الفواتير</span>
                     </button>
                 </div>
             </div>
@@ -914,8 +925,8 @@
                         </div>
                         <div>
                             <h3 class="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
-                                <span>التحليل التنفيذي الذكي لأداء اليوم والوردية</span>
-                                <span class="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">تحليل ذكي ومؤشرات أداء</span>
+                                <span id="analysis-section-title">التحليل التنفيذي الذكي لأداء اليوم والوردية</span>
+                                <span id="analysis-section-badge" class="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">تحليل ذكي ومؤشرات أداء</span>
                             </h3>
                             <p class="text-xs text-slate-500">ساعة الذروة، الأصناف النجوم، كفاءة سلة المشتريات، وتوزيع السيولة النقدية</p>
                         </div>
@@ -1105,7 +1116,7 @@
                 <div class="lg:col-span-3 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
                     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">أعلى 10 أصناف أداءً في الشيفت</h3>
+                            <h3 id="chart-top-items-title" class="text-sm font-bold text-slate-900">أعلى 10 أصناف أداءً في الشيفت</h3>
                             <p class="text-[11px] text-slate-500">ترتيب المنتجات الأكثر مساهمة في الإيراد والأرباح</p>
                         </div>
                         <div class="flex items-center bg-slate-100 p-1 rounded-xl">
@@ -1120,7 +1131,7 @@
             </div>
 
             <!-- Items Aggregated Table (الجدول التجميعي للأصناف) -->
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
+            <div id="section-items-table" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div>
                         <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -1326,7 +1337,7 @@
             </div>
 
             <!-- Detailed Invoices Table / Mobile Cards (الجدول التفصيلي للفواتير) -->
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
+            <div id="section-invoices-table" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div>
                         <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -1903,6 +1914,6 @@
     </div>
 
     <!-- Application Script Bundle with Cache Buster -->
-    <script src="./bundle.js?v=2.4.3"></script>
+    <script src="./bundle.js?v=2.4.4"></script>
 </body>
 </html>

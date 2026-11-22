@@ -13,10 +13,22 @@ export class ShiftAnalyzer {
     /**
      * Determines Day 1 and Day 2 from dates present in items or metadata
      */
-    static resolveDates(items, meta) {
+    static resolveDates(items, meta = {}) {
+        const normalizeDateDisplay = (dStr) => {
+            if (!dStr) return '';
+            const parts = dStr.trim().split(/[-/.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) { // YYYY-MM-DD -> DD-MM-YYYY
+                    return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+                }
+                return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+            }
+            return dStr;
+        };
+
         let uniqueDates = [...new Set(items.map(i => i.date).filter(d => d && /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(d.trim())))];
         
-        // Sort dates chronologically if possible
+        // Sort dates chronologically
         uniqueDates.sort((a, b) => {
             const parseDateObj = (dStr) => {
                 const parts = dStr.split(/[-/.]/);
@@ -32,15 +44,18 @@ export class ShiftAnalyzer {
             return parseDateObj(a) - parseDateObj(b);
         });
 
+        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
         let day1 = uniqueDates[0] || meta.startDate || '';
-        let day2 = uniqueDates[1] || meta.endDate || '';
+        let day2 = isMultiDay 
+            ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') 
+            : (uniqueDates[1] || meta.endDate || '');
 
         // If metadata has explicit dates, ensure compatibility
         if (meta.startDate && !day1) day1 = meta.startDate;
         if (meta.endDate && !day2 && meta.endDate !== day1) day2 = meta.endDate;
 
-        // If day2 is not yet present (e.g. single day fetched), infer the next calendar day
-        if (day1 && (!day2 || day2 === day1)) {
+        // If day2 is not yet present and NOT multi-day (e.g. single day fetched), infer the next calendar day
+        if (!isMultiDay && day1 && (!day2 || day2 === day1)) {
             const parts = day1.split(/[-/.]/);
             if (parts.length === 3) {
                 const d1Obj = parts[0].length === 4
@@ -54,7 +69,10 @@ export class ShiftAnalyzer {
             }
         }
 
-        return { day1, day2, allDates: uniqueDates };
+        day1 = normalizeDateDisplay(day1);
+        day2 = normalizeDateDisplay(day2);
+
+        return { day1, day2, allDates: uniqueDates, isMultiDay };
     }
 
     /**
@@ -62,26 +80,44 @@ export class ShiftAnalyzer {
      * @param {Array} items - All invoice line items
      * @param {string} tab - Current selected tab
      * @param {number} cutoffHour - Cutoff hour integer (1 to 11, e.g. 6 for 06:00 AM)
-     * @param {Object} dates - { day1, day2 }
+     * @param {Object} dates - { day1, day2, isMultiDay, allDates }
      */
     static filterItems(items, tab, cutoffHour, dates) {
-        const { day1, day2 } = dates;
+        const { day1, day2, isMultiDay } = dates;
+        const isRangeMode = isMultiDay || (dates.allDates && dates.allDates.length > 2);
+
+        const normDate = (d) => {
+            if (!d) return '';
+            const p = d.trim().split(/[-/.]/);
+            if (p.length === 3) {
+                if (p[0].length === 4) return `${p[2].padStart(2, '0')}-${p[1].padStart(2, '0')}-${p[0]}`;
+                return `${p[0].padStart(2, '0')}-${p[1].padStart(2, '0')}-${p[2]}`;
+            }
+            return d;
+        };
+
+        const nDay1 = normDate(day1);
+        const nDay2 = normDate(day2);
 
         return items.filter(item => {
-            const isDay1 = item.date === day1;
-            const isDay2 = day2 ? item.date === day2 : false;
+            if (isRangeMode) {
+                // In multi-day mode, both actual_shift and all_report mean the full period
+                if (tab === SHIFT_TABS.ACTUAL_SHIFT || tab === SHIFT_TABS.ALL_REPORT) {
+                    return true;
+                }
+            }
+
+            const itemDate = normDate(item.date);
+            const isDay1 = itemDate === nDay1;
+            const isDay2 = nDay2 ? itemDate === nDay2 : false;
             const isBeforeCutoff = item.hour < cutoffHour;
             const isAfterOrAtCutoff = item.hour >= cutoffHour;
 
             switch (tab) {
                 case SHIFT_TABS.ACTUAL_SHIFT:
                     // الشيفت الفعلي لليوم الأول:
-                    // 1) فواتير اليوم الأول بعد انتهاء الشيفت فجراً (hour >= cutoffHour)
-                    // 2) + فواتير اليوم الثاني المسجلة قبل انتهاء الشيفت فجراً (hour < cutoffHour)
-                    // إذا كان التقرير يحتوي على يوم واحد فقط، تؤخذ فواتير بعد ساعة القطع
                     if (isDay1 && isAfterOrAtCutoff) return true;
                     if (isDay2 && isBeforeCutoff) return true;
-                    // If items have only 1 date and user filtered, include day1 after cutoff
                     return false;
 
                 case SHIFT_TABS.ALL_REPORT:
