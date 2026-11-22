@@ -10,6 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="shortcut icon" href="favicon.ico">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -181,6 +185,14 @@
                 </div>
                 <h2 class="text-xl font-black text-slate-900">تسجيل الدخول - نظام KABAKA</h2>
                 <p class="text-xs text-slate-500 mt-1">اتصال آمن ومباشر لجلب تقارير المبيعات وتحليل الورديات</p>
+            </div>
+
+            <!-- Session Expiration Alert Notice -->
+            <div id="login-session-expired-alert" class="hidden mb-4 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-start gap-2.5 animate-in fade-in shadow-xs">
+                <span class="text-base leading-none">⚠️</span>
+                <div>
+                    <span id="login-session-expired-msg" class="block">انتهت صلاحية الجلسة أو الكوكي في سندباد. يرجى تسجيل الدخول مجدداً لتجديد الكوكي والاتصال فوراً.</span>
+                </div>
             </div>
 
             <!-- Session Cookies Init Status (Executed automatically upon opening the page) -->

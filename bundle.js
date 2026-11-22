@@ -396,8 +396,16 @@ class SindbadParser {
     }
 
     static parse(htmlText) {
-        if (!htmlText || typeof htmlText !== 'string') {
-            throw new Error('لم يتم تزويد نص HTML صالح للتحليل.');
+        if (!htmlText || typeof htmlText !== 'string' || htmlText.trim().length === 0) {
+            const err = new Error('استجابة فارغة من خادم سندباد. يرجى التحقق من الجلسة وتسجيل الدخول.');
+            err.isSessionExpired = true;
+            throw err;
+        }
+
+        if (typeof NetworkManager !== 'undefined' && NetworkManager.isSessionExpiredHtml && NetworkManager.isSessionExpiredHtml(htmlText)) {
+            const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+            err.isSessionExpired = true;
+            throw err;
         }
 
         const parser = new DOMParser();
@@ -407,10 +415,20 @@ class SindbadParser {
             doc.querySelector('input[type="password"]') ||
             (htmlText.includes('تسجيل الدخول') && (htmlText.includes('password') || htmlText.includes('username')))
         );
+        if (isLoginPage) {
+            const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+            err.isSessionExpired = true;
+            throw err;
+        }
 
         const meta = this.extractMetadata(doc, htmlText);
         const { table, headers } = this.findSalesTable(doc);
         if (!table) {
+            if (typeof NetworkManager !== 'undefined' && NetworkManager.isSessionExpiredHtml && (NetworkManager.isSessionExpiredHtml(htmlText) || !htmlText.includes('المبيعات'))) {
+                const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                err.isSessionExpired = true;
+                throw err;
+            }
             throw new Error('لم يتم العثور على جدول مبيعات سندباد في الكود المقدم. يرجى التأكد من استخراج تقرير المبيعات التفصيلي.');
         }
 
@@ -422,7 +440,7 @@ class SindbadParser {
         if (!meta.endDate && uniqueDates.length > 0) meta.endDate = uniqueDates[uniqueDates.length - 1];
         meta.uniqueDates = uniqueDates;
 
-        return { isLoginPage, meta, headers, items, summaryRow, summary: summaryFooter };
+        return { isLoginPage: false, meta, headers, items, summaryRow, summary: summaryFooter };
     }
 
     static extractMetadata(doc, rawHtml) {
@@ -1235,6 +1253,33 @@ class NetworkManager {
         this.retryCount = 0;
     }
 
+    static isSessionExpiredHtml(html) {
+        if (!html || typeof html !== 'string') return true;
+        const trimmed = html.trim();
+        if (trimmed.length === 0) return true;
+
+        const lower = trimmed.toLowerCase();
+        if (lower.includes('type="password"') || lower.includes("type='password'") || lower.includes('name="password"') || lower.includes('name="pass"')) {
+            return true;
+        }
+        if (lower.includes('login.php') && (lower.includes('username') || lower.includes('password') || lower.includes('تسجيل الدخول') || lower.includes('فضلا'))) {
+            return true;
+        }
+        if (trimmed.includes('تسجيل الدخول') && (trimmed.includes('كلمة المرور') || trimmed.includes('اسم المستخدم') || trimmed.includes('فضلا ادخل'))) {
+            return true;
+        }
+        if (trimmed.includes('انتهت الجلسة') || trimmed.includes('Session Expired') || trimmed.includes('session_expired')) {
+            return true;
+        }
+        if (lower.includes('window.location') && (lower.includes('login.php') || lower.includes('index.php'))) {
+            return true;
+        }
+        if (trimmed.length < 180 && !lower.includes('<table') && (lower.includes('found') || lower.includes('redirect') || lower.includes('moved'))) {
+            return true;
+        }
+        return false;
+    }
+
     setCorsProxy(proxy) {
         this.corsProxy = proxy ? proxy.trim() : '';
     }
@@ -1397,10 +1442,22 @@ class NetworkManager {
                 this.onStatus({ step: 3, message: 'جلب قوائم الفلاتر من منصة سندباد...' });
                 const baseUrl = this.getProxyBaseUrl();
                 const resp = await fetch(`${baseUrl}/api/filters`);
+                if (resp.status === 401 || resp.status === 403) {
+                    const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                    err.isSessionExpired = true;
+                    throw err;
+                }
                 if (resp.ok) {
-                    return await resp.text();
+                    const text = await resp.text();
+                    if (NetworkManager.isSessionExpiredHtml(text)) {
+                        const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                        err.isSessionExpired = true;
+                        throw err;
+                    }
+                    return text;
                 }
             } catch (e) {
+                if (e.isSessionExpired) throw e;
                 console.warn('Local proxy filters fetch failed:', e);
             }
         }
@@ -1414,19 +1471,28 @@ class NetworkManager {
                 headers: { 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' }
             });
 
+            if (resp.status === 401 || resp.status === 403) {
+                const err = new Error('انتهت جلسة تسجيل الدخول في سندباد. يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                err.isSessionExpired = true;
+                throw err;
+            }
+
             const html = await resp.text();
-            if (html.includes('تسجيل الدخول') && html.includes('password')) {
+            if (NetworkManager.isSessionExpiredHtml(html)) {
                 if (this.lastCredentials && this.retryCount === 0) {
                     this.retryCount++;
                     this.onStatus({ step: 1, message: 'انتهت الجلسة، جارٍ إعادة تسجيل الدخول تلقائياً...' });
                     await this.login(this.lastCredentials.username, this.lastCredentials.password);
                     return await this.fetchFiltersHTML();
                 }
-                throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مجدداً.');
+                const err = new Error('انتهت جلسة تسجيل الدخول في سندباد (الكوكي منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                err.isSessionExpired = true;
+                throw err;
             }
 
             return html;
         } catch (err) {
+            if (err.isSessionExpired) throw err;
             this._handleCorsOrNetworkError(err, 'فشل جلب قوائم الفلاتر من سندباد.');
             throw err;
         }
@@ -1471,10 +1537,22 @@ class NetworkManager {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(params)
                 });
+                if (resp.status === 401 || resp.status === 403) {
+                    const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                    err.isSessionExpired = true;
+                    throw err;
+                }
                 if (resp.ok) {
-                    return await resp.text();
+                    const text = await resp.text();
+                    if (NetworkManager.isSessionExpiredHtml(text)) {
+                        const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                        err.isSessionExpired = true;
+                        throw err;
+                    }
+                    return text;
                 }
             } catch (e) {
+                if (e.isSessionExpired) throw e;
                 console.warn('Local proxy report fetch failed:', e);
             }
         }
@@ -1508,20 +1586,29 @@ class NetworkManager {
                 body: postBody.toString()
             });
 
+            if (resp.status === 401 || resp.status === 403) {
+                const err = new Error('انتهت جلسة تسجيل الدخول في سندباد. يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                err.isSessionExpired = true;
+                throw err;
+            }
+
             const html = await resp.text();
-            if (html.includes('تسجيل الدخول') && html.includes('password')) {
+            if (NetworkManager.isSessionExpiredHtml(html)) {
                 if (this.lastCredentials && this.retryCount === 0) {
                     this.retryCount++;
                     this.onStatus({ step: 1, message: 'انتهت الجلسة، جارٍ إعادة تسجيل الدخول تلقائياً...' });
                     await this.login(this.lastCredentials.username, this.lastCredentials.password);
                     return await this.fetchReportHTML(params);
                 }
-                throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مجدداً.');
+                const err = new Error('انتهت جلسة تسجيل الدخول في سندباد (الكوكي منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
+                err.isSessionExpired = true;
+                throw err;
             }
 
             return html;
 
         } catch (err) {
+            if (err.isSessionExpired) throw err;
             this._handleCorsOrNetworkError(err, 'فشل جلب صفحة التقرير من سندباد.');
             throw err;
         }
@@ -3081,6 +3168,33 @@ class App {
         }
     }
 
+    handleSessionExpired(reasonMessage = 'انتهت صلاحية جلسة سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.') {
+        console.warn('Session expired or cookie invalid:', reasonMessage);
+        try {
+            localStorage.removeItem('kabaka_is_logged_in');
+            localStorage.removeItem('kabaka_active_screen');
+        } catch (_) {}
+
+        this.showScreen('login');
+        this.showToast(reasonMessage, 'warning');
+
+        // Show session expired alert on login card
+        const alertBox = document.getElementById('login-session-expired-alert');
+        const alertMsg = document.getElementById('login-session-expired-msg');
+        if (alertBox) {
+            alertBox.classList.remove('hidden');
+            if (alertMsg && reasonMessage) alertMsg.textContent = reasonMessage;
+        }
+
+        const passInput = document.getElementById('login-password');
+        if (passInput) {
+            setTimeout(() => {
+                passInput.focus();
+                passInput.select?.();
+            }, 100);
+        }
+    }
+
     showScreen(screenName) {
         this.currentScreen = screenName;
         try {
@@ -3744,6 +3858,8 @@ class App {
 
         const progressBox = document.getElementById('login-progress-box');
         const submitBtn = document.getElementById('btn-login-submit');
+        const alertBox = document.getElementById('login-session-expired-alert');
+        if (alertBox) alertBox.classList.add('hidden');
         if (progressBox) progressBox.classList.remove('hidden');
         if (submitBtn) submitBtn.disabled = true;
 
@@ -3776,6 +3892,10 @@ class App {
             this.showToast('تم تحديث خيارات الفروع والمستخدمين بنجاح', 'success');
         } catch (err) {
             console.warn('Could not fetch dynamic filters, using defaults:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+                this.handleSessionExpired('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+                return;
+            }
             // Fallback to sample filters if offline or blocked
             const filters = NetworkManager.parseFiltersHTML(sampleFilterHTML);
             this.populateFilterDropdowns(filters);
@@ -3870,6 +3990,10 @@ class App {
             this.loadStoreInventory().catch(e => console.warn('Inventory sync error:', e));
         } catch (err) {
             console.error('Fetch report error:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+                this.handleSessionExpired('فشل جلب التقرير لأن جلسة سندباد انتهت (الكوكي غير صالح). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+                return;
+            }
             this.showToast(err.message || 'فشل جلب التقرير', 'error');
         } finally {
             if (progressBox) progressBox.classList.add('hidden');
@@ -3900,6 +4024,11 @@ class App {
 
     loadHTMLContent(htmlText, sourceLabel = '') {
         try {
+            if (!htmlText || NetworkManager.isSessionExpiredHtml(htmlText)) {
+                this.handleSessionExpired('انتهت صلاحية جلسة سندباد (الكوكي غير صالح أو منتهي). تم تحويلك لصفحة تسجيل الدخول لتجديد الكوكي...');
+                return;
+            }
+
             this.rawHtml = htmlText;
             this.parsedData = SindbadParser.parse(htmlText);
 
@@ -3922,6 +4051,10 @@ class App {
             this.renderAll();
         } catch (err) {
             console.error('Parsing error:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+                this.handleSessionExpired('انتهت صلاحية جلسة سندباد (الكوكي غير صالح أو منتهي). تم تحويلك لصفحة تسجيل الدخول لتجديد الكوكي...');
+                return;
+            }
             this.showToast(err.message || 'حدث خطأ أثناء تحليل التقرير', 'error');
         }
     }
@@ -4312,6 +4445,10 @@ class App {
 
         } catch (err) {
             console.error('Refresh error:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+                this.handleSessionExpired('فشل تحديث التقرير لأن جلسة سندباد انتهت (الكوكي غير صالح أو منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+                return;
+            }
             if (this.rawHtml) {
                 this.showToast('تعذر الاتصال المباشر بسندباد (' + (err.message || 'خطأ شبكة') + ')، تم إعادة تحليل التقرير السابق', 'warning');
                 this.loadHTMLContent(this.rawHtml, 'تحديث البيانات الحالية');
@@ -5493,7 +5630,7 @@ class App {
                 stagnantContainer.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">لا توجد أصناف راكدة ملحوظة، دوران المخزون ممتاز بالمحل ✓</p>';
             } else {
                 stagnantContainer.innerHTML = `
-                    <table class="w-full text-right text-xs border border-slate-200 rounded-xl overflow-hidden">
+                    <table class="w-full min-w-[650px] text-right text-xs border border-slate-200 rounded-xl overflow-hidden">
                         <thead class="bg-slate-100 text-slate-700 font-bold">
                             <tr>
                                 <th class="p-2">الصنف</th>
@@ -5591,6 +5728,10 @@ class App {
             this.showToast(`تم جلب مبيعات الدورة بنجاح (${range.cycleDays} أيام) وتحديث قرارات الفرشة ✓`, 'success');
         } catch (e) {
             console.warn('Failed to fetch cycle from Sindbad:', e);
+            if (e.isSessionExpired || (e.message && (e.message.includes('جلسة') || e.message.includes('الكوكي')))) {
+                this.handleSessionExpired('انتهت صلاحية جلسة سندباد أثناء سحب مبيعات الدورة. تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+                return;
+            }
             this.showToast('تعذر سحب الفترة من سندباد (' + (e.message || 'شبكة') + ')، تم احتساب القرارات على أرقام التقرير الحالي ومخزون المحل', 'warning');
             this.renderPurchasePlanning();
         } finally {

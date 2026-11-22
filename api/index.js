@@ -106,6 +106,14 @@ export default async function handler(req, res) {
                 }
             });
             const html = await resp.text();
+            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password'))) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                return res.status(401).json({
+                    error: 'session_expired',
+                    isSessionExpired: true,
+                    message: 'انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً.'
+                });
+            }
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             return res.status(200).send(html);
         }
@@ -123,6 +131,14 @@ export default async function handler(req, res) {
                 }
             });
             const html = await resp.text();
+            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                return res.status(401).json({
+                    error: 'session_expired',
+                    isSessionExpired: true,
+                    message: 'انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً.'
+                });
+            }
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             return res.status(200).send(html);
         }
@@ -171,6 +187,14 @@ export default async function handler(req, res) {
             });
 
             const html = await resp.text();
+            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                return res.status(401).json({
+                    error: 'session_expired',
+                    isSessionExpired: true,
+                    message: 'انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً.'
+                });
+            }
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             return res.status(200).send(html);
         }
@@ -202,6 +226,14 @@ export default async function handler(req, res) {
             });
 
             const html = await resp.text();
+            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                return res.status(401).json({
+                    error: 'session_expired',
+                    isSessionExpired: true,
+                    message: 'انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً.'
+                });
+            }
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             return res.status(200).send(html);
         }

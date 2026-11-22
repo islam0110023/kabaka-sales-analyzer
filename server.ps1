@@ -1,4 +1,4 @@
-$port = 5500
+﻿$port = 5500
 $path = $PSScriptRoot
 $cookieFile = Join-Path $path "sindbad_session_cookies.txt"
 
@@ -105,9 +105,19 @@ while ($listener.IsListening) {
         # 2. API: Fetch Dynamic Filters (salez_report1.php)
         if ($localPath -eq 'api/filters') {
             try {
-                $htmlOutput = curl.exe -s -b $cookieFile -c $cookieFile @headers `
+                $htmlOutput = curl.exe -s -L -b $cookieFile -c $cookieFile @headers `
                     -H "Referer: https://siindbad.com/sys/app/index.php" `
                     "https://siindbad.com/sys/app/salez_report1.php"
+
+                if ([string]::IsNullOrWhiteSpace($htmlOutput) -or $htmlOutput -match 'login\.php|تسجيل الدخول|فضلا ادخل|type=["'']password["'']') {
+                    $response.StatusCode = 401
+                    $errJson = '{"error":"session_expired","isSessionExpired":true,"message":"انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً."}'
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $response.ContentType = "application/json; charset=utf-8"
+                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                    $response.Close()
+                    continue
+                }
 
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($htmlOutput)
                 $response.ContentType = "text/html; charset=utf-8"
@@ -168,11 +178,21 @@ while ($listener.IsListening) {
                     "submit=$([uri]::EscapeDataString('إرسال'))"
                 ) -join '&'
 
-                $reportHtml = curl.exe -s -b $cookieFile -c $cookieFile -X POST @headers `
+                $reportHtml = curl.exe -s -L -b $cookieFile -c $cookieFile -X POST @headers `
                     -H "Content-Type: application/x-www-form-urlencoded" `
                     -H "Origin: https://siindbad.com" `
                     -H "Referer: https://siindbad.com/sys/app/salez_report1.php" `
                     --data $postParams "https://siindbad.com/sys/app/salez_report2.php"
+
+                if ([string]::IsNullOrWhiteSpace($reportHtml) -or $reportHtml -match 'login\.php|تسجيل الدخول|فضلا ادخل|type=["'']password["'']') {
+                    $response.StatusCode = 401
+                    $errJson = '{"error":"session_expired","isSessionExpired":true,"message":"انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً."}'
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $response.ContentType = "application/json; charset=utf-8"
+                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                    $response.Close()
+                    continue
+                }
 
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($reportHtml)
                 $response.ContentType = "text/html; charset=utf-8"
@@ -254,6 +274,7 @@ while ($listener.IsListening) {
                 '.json' { 'application/json; charset=utf-8' }
                 '.png'  { 'image/png' }
                 '.svg'  { 'image/svg+xml' }
+                '.ico'  { 'image/x-icon' }
                 default { 'application/octet-stream' }
             }
 
