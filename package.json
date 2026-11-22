@@ -1,0 +1,17 @@
+{
+  "name": "kabaka-sales-analyzer",
+  "version": "2.3.0",
+  "description": "KABAKA Sales & Shift Analyzer and Smart Procurement Planner",
+  "type": "module",
+  "scripts": {
+    "start": "powershell -ExecutionPolicy Bypass -File ./server.ps1"
+  },
+  "keywords": [
+    "kabaka",
+    "sindbad",
+    "sales-analyzer",
+    "procurement"
+  ],
+  "author": "KABAKA",
+  "license": "ISC"
+}
