@@ -3045,6 +3045,8 @@ class App {
 
         // Screens: 'login', 'filters', 'dashboard'
         this.currentScreen = 'login';
+        this.filterDateMode = 'single'; // 'single' (shift) or 'range' (multi-day)
+        this.lastFetchedDateMode = 'single';
 
         // Filters and pagination
         this.itemsSearch = '';
@@ -3264,6 +3266,106 @@ class App {
             shiftDateInput.value = todayStr;
         }
         this.setShiftDate(now);
+
+        // Also initialize multi-day range inputs with last 7 days (today - 6 days to today)
+        const weekAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        this.setDateRange(weekAgo, now, false);
+    }
+
+    setFilterDateMode(mode) {
+        this.filterDateMode = mode;
+        const tabSingle = document.getElementById('tab-mode-single-shift');
+        const tabRange = document.getElementById('tab-mode-date-range');
+        const containerSingle = document.getElementById('container-mode-single-shift');
+        const containerRange = document.getElementById('container-mode-date-range');
+
+        const activeClasses = 'flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-black transition bg-blue-600 text-white shadow-xs';
+        const inactiveClasses = 'flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-blue-700 hover:bg-blue-50';
+
+        if (mode === 'range') {
+            if (tabSingle) tabSingle.className = inactiveClasses;
+            if (tabRange) tabRange.className = activeClasses;
+            if (containerSingle) containerSingle.classList.add('hidden');
+            if (containerRange) containerRange.classList.remove('hidden');
+
+            // Apply range values to d1..d2 inputs
+            const startInput = document.getElementById('input-range-start');
+            const endInput = document.getElementById('input-range-end');
+            if (startInput && endInput && startInput.value && endInput.value) {
+                const [sy, sm, sd] = startInput.value.split('-').map(Number);
+                const [ey, em, ed] = endInput.value.split('-').map(Number);
+                const sDate = new Date(sy, sm - 1, sd);
+                const eDate = new Date(ey, em - 1, ed);
+                this.setDateRange(sDate, eDate, true);
+            }
+        } else {
+            if (tabSingle) tabSingle.className = activeClasses;
+            if (tabRange) tabRange.className = inactiveClasses;
+            if (containerSingle) containerSingle.classList.remove('hidden');
+            if (containerRange) containerRange.classList.add('hidden');
+
+            // Apply single shift values to d1..d2 inputs
+            const shiftDateInput = document.getElementById('input-shift-date');
+            if (shiftDateInput && shiftDateInput.value) {
+                const [sy, sm, sd] = shiftDateInput.value.split('-').map(Number);
+                this.setShiftDate(new Date(sy, sm - 1, sd));
+            }
+        }
+    }
+
+    setDateRange(startObj, endObj, updateFormInputs = true) {
+        if (startObj > endObj) {
+            const temp = startObj;
+            startObj = endObj;
+            endObj = temp;
+        }
+
+        const formatIso = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        const formatDisplay = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${day}-${m}-${y}`;
+        };
+
+        const startInput = document.getElementById('input-range-start');
+        const endInput = document.getElementById('input-range-end');
+        if (startInput) startInput.value = formatIso(startObj);
+        if (endInput) endInput.value = formatIso(endObj);
+
+        // Calculate days duration
+        const diffTime = Math.abs(endObj.getTime() - startObj.getTime());
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+        const badge = document.getElementById('range-days-count-badge');
+        if (badge) {
+            badge.textContent = diffDays === 1 ? 'يوم واحد' : (diffDays === 2 ? 'يومان' : `${diffDays} أيام مبيعات`);
+        }
+
+        const explText = document.getElementById('range-mode-explanation-text');
+        if (explText) {
+            explText.innerHTML = `
+                سيتم طلب التقرير من سندباد للفترة الكاملة من <span class="font-bold text-indigo-700 font-mono">${formatDisplay(startObj)}</span> إلى <span class="font-bold text-indigo-700 font-mono">${formatDisplay(endObj)}</span> (${diffDays} يوم).
+                <br>• سيتم احتساب كافة فواتير المبيعات الصادرة بين هذين التاريخين بدون استقطاع، لحساب إجمالي المبيعات، وتحديد الأصناف الأكثر مبيعاً ونواقص المخزون طوال الفترة.
+            `;
+        }
+
+        if (updateFormInputs) {
+            this.setDateValues({
+                d1: startObj.getDate(),
+                m1: startObj.getMonth() + 1,
+                y1: startObj.getFullYear(),
+                d2: endObj.getDate(),
+                m2: endObj.getMonth() + 1,
+                y2: endObj.getFullYear()
+            });
+        }
     }
 
     setShiftDate(dateObj) {
@@ -3491,6 +3593,74 @@ class App {
         if (btnToggleAdv && advContainer) {
             btnToggleAdv.addEventListener('click', () => {
                 advContainer.classList.toggle('hidden');
+            });
+        }
+
+        // Mode switch buttons (Single Shift vs Multi-Day Range)
+        const tabSingleMode = document.getElementById('tab-mode-single-shift');
+        const tabRangeMode = document.getElementById('tab-mode-date-range');
+        if (tabSingleMode) {
+            tabSingleMode.addEventListener('click', () => this.setFilterDateMode('single'));
+        }
+        if (tabRangeMode) {
+            tabRangeMode.addEventListener('click', () => this.setFilterDateMode('range'));
+        }
+
+        // Multi-Day Range date inputs
+        const rangeStartInput = document.getElementById('input-range-start');
+        const rangeEndInput = document.getElementById('input-range-end');
+        const handleRangeInputChange = () => {
+            if (rangeStartInput && rangeEndInput && rangeStartInput.value && rangeEndInput.value) {
+                const [sy, sm, sd] = rangeStartInput.value.split('-').map(Number);
+                const [ey, em, ed] = rangeEndInput.value.split('-').map(Number);
+                this.setDateRange(new Date(sy, sm - 1, sd), new Date(ey, em - 1, ed), true);
+            }
+        };
+        if (rangeStartInput) rangeStartInput.addEventListener('change', handleRangeInputChange);
+        if (rangeEndInput) rangeEndInput.addEventListener('change', handleRangeInputChange);
+
+        // Multi-Day Range quick preset buttons
+        const btnRangeLast7 = document.getElementById('btn-range-last-7');
+        if (btnRangeLast7) {
+            btnRangeLast7.addEventListener('click', () => {
+                const now = new Date();
+                const past = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+                this.setDateRange(past, now, true);
+                this.showToast('تم اختيار نطاق آخر 7 أيام', 'info');
+            });
+        }
+
+        const btnRangeThursdayCycle = document.getElementById('btn-range-thursday-cycle');
+        if (btnRangeThursdayCycle) {
+            btnRangeThursdayCycle.addEventListener('click', () => {
+                const now = new Date();
+                const dayOfWeek = now.getDay(); // 0=Sun..4=Thu..6=Sat
+                let diffToThursday = (dayOfWeek - 4 + 7) % 7;
+                const startThursday = new Date(now.getTime() - diffToThursday * 24 * 60 * 60 * 1000);
+                const endWednesday = new Date(startThursday.getTime() + 6 * 24 * 60 * 60 * 1000);
+                const endDate = endWednesday > now ? now : endWednesday;
+                this.setDateRange(startThursday, endDate, true);
+                this.showToast('تم تحديد دورة الأسبوع من الخميس', 'info');
+            });
+        }
+
+        const btnRangeMonthToDate = document.getElementById('btn-range-month-to-date');
+        if (btnRangeMonthToDate) {
+            btnRangeMonthToDate.addEventListener('click', () => {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                this.setDateRange(startOfMonth, now, true);
+                this.showToast('تم تحديد فترة الشهر الحالي حتى اليوم', 'info');
+            });
+        }
+
+        const btnRangeLast30 = document.getElementById('btn-range-last-30');
+        if (btnRangeLast30) {
+            btnRangeLast30.addEventListener('click', () => {
+                const now = new Date();
+                const past = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+                this.setDateRange(past, now, true);
+                this.showToast('تم تحديد فترة آخر 30 يوماً', 'info');
             });
         }
 
@@ -3979,6 +4149,8 @@ class App {
         if (progressBox) progressBox.classList.remove('hidden');
         if (submitBtn) submitBtn.disabled = true;
 
+        this.lastFetchedDateMode = this.filterDateMode;
+
         try {
             const html = await this.network.fetchReportHTML(p);
             this.lastReportParams = p;
@@ -4046,6 +4218,18 @@ class App {
                 datesEl.textContent = `${start} إلى ${end}`;
             }
             if (sourceEl) sourceEl.textContent = sourceLabel || 'salez_report2.php';
+
+            // Auto-select tab mode: If range was fetched or data has > 2 dates, show ALL_REPORT by default
+            const resolvedDates = ShiftAnalyzer.resolveDates(this.parsedData.items, this.parsedData.meta);
+            const isRange = this.lastFetchedDateMode === 'range' || (resolvedDates.allDates && resolvedDates.allDates.length > 2);
+            this.activeTab = isRange ? SHIFT_TABS.ALL_REPORT : SHIFT_TABS.ACTUAL_SHIFT;
+            document.querySelectorAll('[data-shift-tab]').forEach(btn => {
+                if (btn.dataset.shiftTab === this.activeTab) {
+                    btn.className = 'shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs whitespace-nowrap';
+                } else {
+                    btn.className = 'shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap';
+                }
+            });
 
             this.renderAll();
         } catch (err) {
@@ -4154,17 +4338,28 @@ class App {
         const exclEl = document.getElementById('shift-banner-excluded');
         const dawnEl = document.getElementById('shift-banner-dawn');
 
+        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2);
         const cutoffStr = String(this.cutoffHour).padStart(2, '0') + ':00 ص';
+
         if (titleEl) {
-            titleEl.textContent = `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
+            titleEl.textContent = isRange
+                ? `تقرير مبيعات الفترة المجمعة من ${dates.day1} إلى ${dates.day2} (${dates.allDates ? dates.allDates.length : 'متعدد'} أيام)`
+                : `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
         }
         if (descEl) {
-            descEl.innerHTML = `
-                تشمل مبيعات وردية <span class="font-bold underline text-white">${dates.day1}</span> من الساعة <strong>${cutoffStr}</strong> حتى 12:00 منتصف الليل + سهرة فجر <span class="font-bold underline text-white">${dates.day2}</span> حتى <strong>${cutoffStr}</strong>.
-                <span class="block mt-0.5 text-blue-200">تم استبعاد <strong>${counts[SHIFT_TABS.DAY1_EXCLUDED] || 0}</strong> فاتورة تخص سهرة أمس تلقائياً.</span>
-            `;
+            if (isRange) {
+                descEl.innerHTML = `
+                    تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${dates.day1}</span> و <span class="font-bold underline text-white">${dates.day2}</span>.
+                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${dates.allDates ? dates.allDates.length : 0}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>
+                `;
+            } else {
+                descEl.innerHTML = `
+                    تشمل مبيعات وردية <span class="font-bold underline text-white">${dates.day1}</span> من الساعة <strong>${cutoffStr}</strong> حتى 12:00 منتصف الليل + سهرة فجر <span class="font-bold underline text-white">${dates.day2}</span> حتى <strong>${cutoffStr}</strong>.
+                    <span class="block mt-0.5 text-blue-200">تم استبعاد <strong>${counts[SHIFT_TABS.DAY1_EXCLUDED] || 0}</strong> فاتورة تخص سهرة أمس تلقائياً.</span>
+                `;
+            }
         }
-        if (invEl) invEl.textContent = counts[SHIFT_TABS.ACTUAL_SHIFT] || 0;
+        if (invEl) invEl.textContent = isRange ? (counts[SHIFT_TABS.ALL_REPORT] || 0) : (counts[SHIFT_TABS.ACTUAL_SHIFT] || 0);
         if (exclEl) exclEl.textContent = counts[SHIFT_TABS.DAY1_EXCLUDED] || 0;
         if (dawnEl) dawnEl.textContent = counts[SHIFT_TABS.DAY2_DAWN] || 0;
 

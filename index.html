@@ -283,43 +283,122 @@
             </div>
 
             <form id="form-report-filters" class="space-y-6 text-xs">
-                <!-- 1. Smart Shift Date Mode (وضع اختيار يوم الشيفت التلقائي) -->
-                <div class="bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-5 rounded-2xl border-2 border-blue-200/80 shadow-xs">
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                        <label class="font-black text-slate-900 text-sm flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">📅</span>
-                            <span>حدد يوم الشيفت المطلوب تحليله:</span>
-                        </label>
-                        <span class="text-xs font-bold text-blue-700 bg-blue-100/80 px-2.5 py-1 rounded-full">يجلب ما بعد 12 بالليل تلقائياً</span>
-                    </div>
-
-                    <!-- Single Date Picker for Shift Date -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                        <div class="sm:col-span-2">
-                            <input id="input-shift-date" type="date" class="w-full bg-white border-2 border-blue-400 text-slate-900 rounded-xl px-3.5 py-2.5 text-sm font-bold font-mono shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <!-- 1. Smart Date Mode: Single Shift & Multi-Day Range (تحليل شيفت محدد أو فترة مجمعة) -->
+                <div class="bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-4 sm:p-5 rounded-2xl border-2 border-blue-200/80 shadow-xs">
+                    <!-- Segmented Mode Switcher (التبديل بين وضع اليوم الفردي ووضع الفترة المجمعة) -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-blue-200/60">
+                        <div>
+                            <span class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">📅</span>
+                                <span>نطاق تاريخ المبيعات المطلوب:</span>
+                            </span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="btn-quick-yesterday-shift" class="flex-1 py-2.5 px-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-xs shadow-xs transition">
-                                ⏪ شيفت أمس
+                        <div class="flex items-center bg-white/90 p-1 rounded-xl border border-blue-200 shadow-2xs self-start sm:self-auto w-full sm:w-auto">
+                            <button type="button" id="tab-mode-single-shift" class="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-black transition bg-blue-600 text-white shadow-xs">
+                                🌙 شيفت يوم محدد
                             </button>
-                            <button type="button" id="btn-quick-today-shift" class="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition">
-                                ⭐ شيفت اليوم
+                            <button type="button" id="tab-mode-date-range" class="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-blue-700 hover:bg-blue-50">
+                                🗓️ فترة مجمعة (أكثر من يوم)
                             </button>
                         </div>
                     </div>
 
-                    <!-- Explanation Banner of the Shift Calculation -->
-                    <div class="bg-white/90 rounded-xl p-3.5 border border-blue-100 text-xs text-slate-700 space-y-1.5 leading-relaxed shadow-2xs">
-                        <div class="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
-                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span id="shift-mode-explanation-title">نظام احتساب وفصل الشيفت المعتمد:</span>
+                    <!-- 1.1 Single Shift Container (الوضع الحالي الفردي) -->
+                    <div id="container-mode-single-shift" class="space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
+                                <span>حدد يوم الشيفت المطلوب تحليله:</span>
+                            </label>
+                            <span class="text-[11px] font-bold text-blue-700 bg-blue-100/80 px-2.5 py-0.5 rounded-full">يجلب ما بعد 12 بالليل تلقائياً</span>
                         </div>
-                        <p id="shift-mode-explanation-text">
-                            عند اختيار يوم (مثلاً <span class="font-bold text-blue-700 font-mono">21</span>)، سيقوم البرنامج تلقائياً بطلب الفترة من <span class="font-bold text-blue-700 font-mono">21 حتى 22</span> من سندباد، بحيث:
-                            <br>• <strong>استبعاد فجر 21:</strong> الفواتير المسجلة قبل 06:00 صباحاً تُستبعد تلقائياً (لأنها تخص سهرة الليلة السابقة 20).
-                            <br>• <strong>احتساب مبيعات 21:</strong> تبدأ الوردية من 06:00 ص وتستمر نهاراً ومساءً حتى 12:00 منتصف الليل.
-                            <br>• <strong>ضم سهرة ما بعد 12 بالليل:</strong> فواتير فجر 22 (من 00:00 إلى 06:00 ص) تُجلب وتُدمج في نفس شيفت يوم 21!
-                        </p>
+
+                        <!-- Single Date Picker for Shift Date -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-2">
+                                <input id="input-shift-date" type="date" class="w-full bg-white border-2 border-blue-400 text-slate-900 rounded-xl px-3.5 py-2.5 text-sm font-bold font-mono shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="btn-quick-yesterday-shift" class="flex-1 py-2.5 px-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-xs shadow-xs transition">
+                                    ⏪ شيفت أمس
+                                </button>
+                                <button type="button" id="btn-quick-today-shift" class="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition">
+                                    ⭐ شيفت اليوم
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Explanation Banner of the Shift Calculation -->
+                        <div class="bg-white/90 rounded-xl p-3.5 border border-blue-100 text-xs text-slate-700 space-y-1.5 leading-relaxed shadow-2xs">
+                            <div class="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
+                                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span id="shift-mode-explanation-title">نظام احتساب وفصل الشيفت المعتمد:</span>
+                            </div>
+                            <p id="shift-mode-explanation-text">
+                                عند اختيار يوم (مثلاً <span class="font-bold text-blue-700 font-mono">21</span>)، سيقوم البرنامج تلقائياً بطلب الفترة من <span class="font-bold text-blue-700 font-mono">21 حتى 22</span> من سندباد، بحيث:
+                                <br>• <strong>استبعاد فجر 21:</strong> الفواتير المسجلة قبل 06:00 صباحاً تُستبعد تلقائياً (لأنها تخص سهرة الليلة السابقة 20).
+                                <br>• <strong>احتساب مبيعات 21:</strong> تبدأ الوردية من 06:00 ص وتستمر نهاراً ومساءً حتى 12:00 منتصف الليل.
+                                <br>• <strong>ضم سهرة ما بعد 12 بالليل:</strong> فواتير فجر 22 (من 00:00 إلى 06:00 ص) تُجلب وتُدمج في نفس شيفت يوم 21!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 1.2 Multi-Day Range Container (وضع الفترة المجمعة الجديد) -->
+                    <div id="container-mode-date-range" class="hidden space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
+                                <span>تحديد فترة المبيعات المجمعة (من يوم كذا إلى يوم كذا):</span>
+                            </label>
+                            <span id="range-days-count-badge" class="text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full">
+                                7 أيام مبيعات
+                            </span>
+                        </div>
+
+                        <!-- Date Range Pickers (Start Date & End Date) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="bg-white p-3 rounded-xl border border-indigo-200 shadow-2xs">
+                                <label class="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                    <span>من تاريخ (البداية):</span>
+                                </label>
+                                <input id="input-range-start" type="date" class="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-sm font-bold font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="bg-white p-3 rounded-xl border border-indigo-200 shadow-2xs">
+                                <label class="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
+                                    <span>إلى تاريخ (النهاية):</span>
+                                </label>
+                                <input id="input-range-end" type="date" class="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-sm font-bold font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets for Multi-Day Ranges -->
+                        <div class="flex flex-wrap items-center gap-2 pt-1">
+                            <span class="text-[11px] font-bold text-slate-600 ml-1">فترات سريعة:</span>
+                            <button type="button" id="btn-range-last-7" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 font-bold text-[11px] shadow-2xs transition">
+                                ⚡ آخر 7 أيام
+                            </button>
+                            <button type="button" id="btn-range-thursday-cycle" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 font-bold text-[11px] shadow-2xs transition">
+                                🔄 دورة الأسبوع (خميس إلى أربعاء)
+                            </button>
+                            <button type="button" id="btn-range-month-to-date" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 font-bold text-[11px] shadow-2xs transition">
+                                📆 الشهر الحالي حتى اليوم
+                            </button>
+                            <button type="button" id="btn-range-last-30" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 font-bold text-[11px] shadow-2xs transition">
+                                🗓️ آخر 30 يوماً
+                            </button>
+                        </div>
+
+                        <!-- Range Mode Explanation Banner -->
+                        <div class="bg-white/90 rounded-xl p-3.5 border border-indigo-100 text-xs text-slate-700 space-y-1 leading-relaxed shadow-2xs">
+                            <div class="font-bold text-indigo-950 flex items-center gap-1.5 text-xs">
+                                <svg class="w-4 h-4 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>تقرير مبيعات الفترة المجمعة:</span>
+                            </div>
+                            <p id="range-mode-explanation-text">
+                                سيقوم البرنامج بجلب وتحليل كافة فواتير المبيعات الصادرة بين التاريخين المحددين بالكامل دون استقطاع، لحساب إجمالي المبيعات، وتحديد الأصناف الأكثر مبيعاً ونواقص المخزون طوال الفترة.
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Collapsible Advanced Mode for Custom d1/d2 -->
@@ -1823,6 +1902,6 @@
     </div>
 
     <!-- Application Script Bundle with Cache Buster -->
-    <script src="./bundle.js?v=2.3.1"></script>
+    <script src="./bundle.js?v=2.4.0"></script>
 </body>
 </html>
