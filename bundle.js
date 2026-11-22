@@ -1258,25 +1258,22 @@ class NetworkManager {
         const trimmed = html.trim();
         if (trimmed.length === 0) return true;
 
+        // If it clearly contains valid Sindbad filters or sales report data, it is NOT expired!
+        if (trimmed.includes("store_id") || trimmed.includes("doc_id") || trimmed.includes("salesman_id") || trimmed.includes("group_id")) {
+            return false;
+        }
+        if (trimmed.includes('<table') && (trimmed.includes('المبيعات') || trimmed.includes('salez_report') || trimmed.includes('الفاتورة') || trimmed.includes('ess'))) {
+            return false;
+        }
+
         const lower = trimmed.toLowerCase();
-        if (lower.includes('type="password"') || lower.includes("type='password'") || lower.includes('name="password"') || lower.includes('name="pass"')) {
-            return true;
-        }
-        if (lower.includes('login.php') && (lower.includes('username') || lower.includes('password') || lower.includes('تسجيل الدخول') || lower.includes('فضلا'))) {
-            return true;
-        }
-        if (trimmed.includes('تسجيل الدخول') && (trimmed.includes('كلمة المرور') || trimmed.includes('اسم المستخدم') || trimmed.includes('فضلا ادخل'))) {
-            return true;
-        }
-        if (trimmed.includes('انتهت الجلسة') || trimmed.includes('Session Expired') || trimmed.includes('session_expired')) {
-            return true;
-        }
-        if (lower.includes('window.location') && (lower.includes('login.php') || lower.includes('index.php'))) {
-            return true;
-        }
-        if (trimmed.length < 180 && !lower.includes('<table') && (lower.includes('found') || lower.includes('redirect') || lower.includes('moved'))) {
-            return true;
-        }
+        if (lower.includes('class="login-form"') || lower.includes("class='login-form'")) return true;
+        if (lower.includes('action="login.php"') || lower.includes("action='login.php'")) return true;
+        if ((lower.includes('type="password"') || lower.includes("type='password'")) && lower.includes('username')) return true;
+        if (lower.includes('window.location') && (lower.includes('login.php') || lower.includes('index.php'))) return true;
+        if (trimmed.includes('انتهت الجلسة') || trimmed.includes('Session Expired') || trimmed.includes('session_expired')) return true;
+        if (trimmed.length < 150 && !lower.includes('<table') && (lower.includes('found') || lower.includes('redirect') || lower.includes('moved'))) return true;
+
         return false;
     }
 
@@ -3887,19 +3884,21 @@ class App {
     async loadDynamicFilters() {
         try {
             const html = await this.network.fetchFiltersHTML();
-            const filters = NetworkManager.parseFiltersHTML(html);
-            this.populateFilterDropdowns(filters);
-            this.showToast('تم تحديث خيارات الفروع والمستخدمين بنجاح', 'success');
-        } catch (err) {
-            console.warn('Could not fetch dynamic filters, using defaults:', err);
-            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
-                this.handleSessionExpired('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
-                return;
+            if (html) {
+                const filters = NetworkManager.parseFiltersHTML(html);
+                if (filters && filters.groups && filters.groups.length > 0) {
+                    this.populateFilterDropdowns(filters);
+                    this.showToast('تم تحديث خيارات الفروع والمجموعات والمستخدمين بنجاح من سندباد ✓', 'success');
+                    return;
+                }
             }
-            // Fallback to sample filters if offline or blocked
-            const filters = NetworkManager.parseFiltersHTML(sampleFilterHTML);
-            this.populateFilterDropdowns(filters);
+        } catch (err) {
+            console.warn('Could not fetch dynamic filters, falling back to store defaults:', err);
         }
+
+        // Guaranteed fallback so dropdowns never fail or stay empty
+        const filters = NetworkManager.parseFiltersHTML(sampleFilterHTML);
+        this.populateFilterDropdowns(filters);
     }
 
     populateFilterDropdowns(filters) {

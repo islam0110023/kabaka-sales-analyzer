@@ -109,7 +109,10 @@ while ($listener.IsListening) {
                     -H "Referer: https://siindbad.com/sys/app/index.php" `
                     "https://siindbad.com/sys/app/salez_report1.php"
 
-                if ([string]::IsNullOrWhiteSpace($htmlOutput) -or $htmlOutput -match 'login\.php|تسجيل الدخول|فضلا ادخل|type=["'']password["'']') {
+                $isFilters = (-not [string]::IsNullOrWhiteSpace($htmlOutput)) -and ($htmlOutput -match "store_id|doc_id|group_id|salesman_id")
+                $isLogin = [string]::IsNullOrWhiteSpace($htmlOutput) -or ($htmlOutput -match 'class="login-form"|<input[^>]*type="password"|<form[^>]*action="login\.php"')
+
+                if (-not $isFilters -and $isLogin) {
                     $response.StatusCode = 401
                     $errJson = '{"error":"session_expired","isSessionExpired":true,"message":"انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً."}'
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes($errJson)
@@ -184,7 +187,10 @@ while ($listener.IsListening) {
                     -H "Referer: https://siindbad.com/sys/app/salez_report1.php" `
                     --data $postParams "https://siindbad.com/sys/app/salez_report2.php"
 
-                if ([string]::IsNullOrWhiteSpace($reportHtml) -or $reportHtml -match 'login\.php|تسجيل الدخول|فضلا ادخل|type=["'']password["'']') {
+                $isReport = (-not [string]::IsNullOrWhiteSpace($reportHtml)) -and ($reportHtml -match '<table|المبيعات|salez_report|الفاتورة|id=["'']ess["'']')
+                $isLogin = [string]::IsNullOrWhiteSpace($reportHtml) -or ($reportHtml -match 'class="login-form"|<input[^>]*type="password"|<form[^>]*action="login\.php"')
+
+                if (-not $isReport -and $isLogin) {
                     $response.StatusCode = 401
                     $errJson = '{"error":"session_expired","isSessionExpired":true,"message":"انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً."}'
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes($errJson)

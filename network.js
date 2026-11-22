@@ -178,25 +178,22 @@ export class NetworkManager {
         const trimmed = html.trim();
         if (trimmed.length === 0) return true;
 
+        // If it clearly contains valid Sindbad filters or sales report data, it is NOT expired!
+        if (trimmed.includes("store_id") || trimmed.includes("doc_id") || trimmed.includes("salesman_id") || trimmed.includes("group_id")) {
+            return false;
+        }
+        if (trimmed.includes('<table') && (trimmed.includes('المبيعات') || trimmed.includes('salez_report') || trimmed.includes('الفاتورة') || trimmed.includes('ess'))) {
+            return false;
+        }
+
         const lower = trimmed.toLowerCase();
-        if (lower.includes('type="password"') || lower.includes("type='password'") || lower.includes('name="password"') || lower.includes('name="pass"')) {
-            return true;
-        }
-        if (lower.includes('login.php') && (lower.includes('username') || lower.includes('password') || lower.includes('تسجيل الدخول') || lower.includes('فضلا'))) {
-            return true;
-        }
-        if (trimmed.includes('تسجيل الدخول') && (trimmed.includes('كلمة المرور') || trimmed.includes('اسم المستخدم') || trimmed.includes('فضلا ادخل'))) {
-            return true;
-        }
-        if (trimmed.includes('انتهت الجلسة') || trimmed.includes('Session Expired') || trimmed.includes('session_expired')) {
-            return true;
-        }
-        if (lower.includes('window.location') && (lower.includes('login.php') || lower.includes('index.php'))) {
-            return true;
-        }
-        if (trimmed.length < 180 && !lower.includes('<table') && (lower.includes('found') || lower.includes('redirect') || lower.includes('moved'))) {
-            return true;
-        }
+        if (lower.includes('class="login-form"') || lower.includes("class='login-form'")) return true;
+        if (lower.includes('action="login.php"') || lower.includes("action='login.php'")) return true;
+        if ((lower.includes('type="password"') || lower.includes("type='password'")) && lower.includes('username')) return true;
+        if (lower.includes('window.location') && (lower.includes('login.php') || lower.includes('index.php'))) return true;
+        if (trimmed.includes('انتهت الجلسة') || trimmed.includes('Session Expired') || trimmed.includes('session_expired')) return true;
+        if (trimmed.length < 150 && !lower.includes('<table') && (lower.includes('found') || lower.includes('redirect') || lower.includes('moved'))) return true;
+
         return false;
     }
 

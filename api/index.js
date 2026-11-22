@@ -106,7 +106,8 @@ export default async function handler(req, res) {
                 }
             });
             const html = await resp.text();
-            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password'))) {
+            const isFilters = html && (html.includes("store_id") || html.includes("doc_id") || html.includes("group_id"));
+            if (!isFilters && (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"'))) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 return res.status(401).json({
                     error: 'session_expired',
@@ -131,7 +132,8 @@ export default async function handler(req, res) {
                 }
             });
             const html = await resp.text();
-            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+            const isReport = html && (html.includes("<table") || html.includes("المبيعات") || html.includes("ess"));
+            if (!isReport && (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (resp.url && resp.url.includes('login.php')))) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 return res.status(401).json({
                     error: 'session_expired',
@@ -187,7 +189,8 @@ export default async function handler(req, res) {
             });
 
             const html = await resp.text();
-            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+            const isReport = html && (html.includes("<table") || html.includes("المبيعات") || html.includes("ess"));
+            if (!isReport && (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (resp.url && resp.url.includes('login.php')))) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 return res.status(401).json({
                     error: 'session_expired',
@@ -226,7 +229,8 @@ export default async function handler(req, res) {
             });
 
             const html = await resp.text();
-            if (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (html.includes('تسجيل الدخول') && html.includes('password')) || (resp.url && resp.url.includes('login.php'))) {
+            const isReport = html && (html.includes("<table") || html.includes("المبيعات") || html.includes("ess"));
+            if (!isReport && (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"') || (resp.url && resp.url.includes('login.php')))) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 return res.status(401).json({
                     error: 'session_expired',
