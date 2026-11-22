@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>KABAKA | محلل المبيعات وفصل الشيفتات الذكي</title>
     
     <!-- Google Fonts: Cairo -->
@@ -57,7 +57,18 @@
             background-color: #f8fafc;
             -webkit-tap-highlight-color: transparent;
         }
-        /* Custom scrollbar */
+        /* Mobile-First Smooth Scroll & Touch */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        input, select, textarea, button {
+            touch-action: manipulation;
+        }
+        /* Custom scrollbar for desktop */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -94,38 +105,52 @@
         <a href="http://localhost:5500" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow-xs transition-colors shrink-0">الانتقال إلى http://localhost:5500</a>
     </div>
 
-    <!-- Top Navigation Header -->
+    <!-- Top Navigation Header (Mobile-First Layout) -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs no-print">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-            <!-- Brand -->
-            <div class="flex items-center gap-2.5 shrink-0">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-sm font-black text-lg shrink-0">
-                    K
-                </div>
-                <div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-sm sm:text-base font-black text-slate-900 leading-none">محلل مبيعات KABAKA</span>
-                        <span class="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full">Pro</span>
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+            <div class="w-full sm:w-auto flex items-center justify-between gap-2.5">
+                <!-- Brand -->
+                <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-sm font-black text-base sm:text-lg shrink-0">
+                        K
                     </div>
-                    <p class="text-[10px] text-slate-500 hidden md:block">فصل الشيفتات التلقائي • كشف الفروقات • خطة المشتريات</p>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm sm:text-base font-black text-slate-900 leading-none">محلل مبيعات KABAKA</span>
+                            <span class="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full">Pro</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 hidden md:block">فصل الشيفتات التلقائي • كشف الفروقات • خطة المشتريات</p>
+                    </div>
+                </div>
+
+                <!-- Action buttons on mobile (تحديث، الفلاتر، الإعدادات) -->
+                <div class="flex sm:hidden items-center gap-1.5 shrink-0">
+                    <button id="nav-btn-refresh-mobile" style="display: none;" class="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold transition shadow-xs active:scale-95" title="تحديث التقرير الآن">
+                        <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+                    <button id="nav-btn-filters-mobile" style="display: none;" class="p-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition shadow-xs" title="تعديل تاريخ الشيفت أو الفلاتر">
+                        <svg class="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    </button>
+                    <button data-open-modal="modal-settings" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-xs" title="الإعدادات">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </button>
                 </div>
             </div>
 
             <!-- Main Navigation Tabs between screens (only visible on dashboard/planning) -->
-            <nav id="main-nav-tabs" style="display: none;" class="items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 no-print">
-                <button id="nav-tab-dashboard" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 bg-white text-emerald-800 shadow-xs whitespace-nowrap">
+            <nav id="main-nav-tabs" style="display: none;" class="w-full sm:w-auto items-center justify-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 no-print">
+                <button id="nav-tab-dashboard" type="button" class="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 bg-white text-emerald-800 shadow-xs whitespace-nowrap">
                     <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     <span>تقرير الوردية</span>
                 </button>
-                <button id="nav-tab-planning" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-indigo-700 transition flex items-center gap-1.5 whitespace-nowrap">
+                <button id="nav-tab-planning" type="button" class="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-indigo-700 transition flex items-center justify-center gap-1.5 whitespace-nowrap">
                     <span class="text-xs">🛒</span>
                     <span>خطة المشتريات</span>
                 </button>
             </nav>
 
-            <!-- Top Actions & Navigation between screens -->
-            <div class="flex items-center gap-2 shrink-0">
-                <!-- Direct Nav buttons -->
+            <!-- Desktop Actions -->
+            <div class="hidden sm:flex items-center gap-2 shrink-0">
                 <button id="nav-btn-refresh" style="display: none;" class="items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs active:scale-95 whitespace-nowrap" title="تحديث التقرير الآن">
                     <svg id="nav-icon-refresh" class="w-3.5 h-3.5 text-emerald-600 transition-transform duration-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     <span>تحديث</span>
@@ -136,7 +161,6 @@
                     <span>الفلاتر</span>
                 </button>
 
-                <!-- Settings Modal trigger -->
                 <button data-open-modal="modal-settings" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-xs" title="الإعدادات">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 </button>
@@ -518,50 +542,50 @@
                         يشمل مبيعات اليوم بدءاً من الساعة 06:00 صباحاً + سهرة ما بعد 12 بالليل حتى فجر الغد (تم استبعاد فواتير سهرة الأمس تلقائياً).
                     </p>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 text-xs w-full md:w-auto">
-                    <div class="flex-1 sm:flex-initial bg-white/10 backdrop-blur-xs rounded-xl px-3 py-2 text-center border border-white/10">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs w-full md:w-auto">
+                    <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
                         <span class="block text-[10px] text-blue-200">فواتير الشيفت</span>
-                        <span id="shift-banner-invoices" class="font-black text-sm text-white">0</span>
+                        <span id="shift-banner-invoices" class="font-black text-sm text-white font-mono">0</span>
                     </div>
-                    <div class="flex-1 sm:flex-initial bg-white/10 backdrop-blur-xs rounded-xl px-3 py-2 text-center border border-white/10">
+                    <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
                         <span class="block text-[10px] text-emerald-200">فلوس الخير</span>
-                        <span id="shift-banner-charity" class="font-black text-sm text-emerald-300">0.00 ج.م</span>
+                        <span id="shift-banner-charity" class="font-black text-sm text-emerald-300 font-mono">0.00 ج.م</span>
                     </div>
-                    <div class="flex-1 sm:flex-initial bg-white/10 backdrop-blur-xs rounded-xl px-3 py-2 text-center border border-white/10">
+                    <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
                         <span class="block text-[10px] text-rose-200">المرتجعات</span>
-                        <span id="shift-banner-returns" class="font-black text-sm text-rose-300">0.00 ج.م</span>
+                        <span id="shift-banner-returns" class="font-black text-sm text-rose-300 font-mono">0.00 ج.م</span>
                     </div>
-                    <div class="flex-1 sm:flex-initial bg-white/10 backdrop-blur-xs rounded-xl px-3 py-2 text-center border border-white/10">
+                    <div class="bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
                         <span class="block text-[10px] text-blue-200">سهرة أمس</span>
-                        <span id="shift-banner-excluded" class="font-black text-sm text-rose-300">0</span>
+                        <span id="shift-banner-excluded" class="font-black text-sm text-rose-300 font-mono">0</span>
                     </div>
-                    <div class="flex-1 sm:flex-initial bg-white/10 backdrop-blur-xs rounded-xl px-3 py-2 text-center border border-white/10">
+                    <div class="col-span-2 sm:col-span-1 bg-white/10 backdrop-blur-xs rounded-xl px-2.5 py-2 text-center border border-white/10">
                         <span class="block text-[10px] text-blue-200">سهرة فجر 2</span>
-                        <span id="shift-banner-dawn" class="font-black text-sm text-emerald-300">0</span>
+                        <span id="shift-banner-dawn" class="font-black text-sm text-emerald-300 font-mono">0</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Shift Filter Tabs (التبويبات الـ 5 الفورية) -->
+            <!-- Shift Filter Tabs (التبويبات الـ 5 الفورية - تدفق لمس سلس للموبايل) -->
             <div class="no-print">
-                <div class="flex flex-wrap gap-2 p-1.5 bg-slate-200/80 rounded-2xl">
-                    <button data-shift-tab="actual_shift" class="flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs">
+                <div class="flex overflow-x-auto no-scrollbar gap-2 p-1.5 bg-slate-200/80 rounded-2xl scroll-smooth">
+                    <button data-shift-tab="actual_shift" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs whitespace-nowrap">
                         <span>⭐ الشيفت الفعلي (شامل بعد 12 بالليل)</span>
                         <span id="badge-count-actual_shift" class="bg-white/25 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="all_report" class="flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100">
+                    <button data-shift-tab="all_report" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
                         <span>إجمالي التقرير بالكامل (الخام)</span>
                         <span id="badge-count-all_report" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day1_only" class="flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100">
+                    <button data-shift-tab="day1_only" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
                         <span>مبيعات تاريخ اليوم الأول فقط</span>
                         <span id="badge-count-day1_only" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day2_dawn" class="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100">
+                    <button data-shift-tab="day2_dawn" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap">
                         <span>سهرة بعد 12 بالليل فقط (فجر 2)</span>
                         <span id="badge-count-day2_dawn" class="bg-slate-300 text-slate-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
-                    <button data-shift-tab="day1_excluded" class="flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-rose-700 hover:bg-rose-50">
+                    <button data-shift-tab="day1_excluded" class="shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-rose-700 hover:bg-rose-50 whitespace-nowrap">
                         <span>فواتير فجر الأمس المستبعدة</span>
                         <span id="badge-count-day1_excluded" class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded-full text-[10px]">0</span>
                     </button>
@@ -1027,8 +1051,8 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table class="w-full text-right border-collapse text-xs">
+                <div class="overflow-x-auto no-scrollbar border border-slate-200 rounded-xl">
+                    <table class="w-full min-w-[700px] text-right border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
                                 <th class="px-3 py-2.5">الكود</th>
@@ -1181,8 +1205,8 @@
                 </div>
 
                 <!-- Reorder Table -->
-                <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table class="w-full text-right border-collapse text-xs">
+                <div class="overflow-x-auto no-scrollbar border border-slate-200 rounded-xl">
+                    <table class="w-full min-w-[700px] text-right border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
                                 <th class="px-3 py-2.5">الكود</th>
@@ -1364,7 +1388,7 @@
                 </div>
 
                 <!-- Mathematical Equation Bar -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-center">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-3 items-center bg-slate-50 rounded-2xl p-3 sm:p-3.5 border border-slate-200 text-center">
                     <!-- Term 1: Total Capital -->
                     <div class="md:col-span-3 bg-white p-3 rounded-xl border border-indigo-100 shadow-2xs">
                         <span class="block text-[11px] font-bold text-indigo-700 mb-0.5">رأس مال المحل الكلي</span>
@@ -1375,8 +1399,8 @@
                         <span class="block text-[10px] text-slate-400 mt-0.5">20 ألف ننجا + 148 ألف باقي الشغل</span>
                     </div>
 
-                    <div class="md:col-span-1 text-slate-400 font-black text-xl leading-none select-none">
-                        ➖
+                    <div class="md:col-span-1 flex items-center justify-center text-slate-400 font-black text-base md:text-xl leading-none select-none py-0.5 md:py-0">
+                        <span class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 text-xs sm:text-sm font-bold shadow-2xs">➖</span>
                     </div>
 
                     <!-- Term 2: Current Inventory at Cost -->
@@ -1389,8 +1413,8 @@
                         <span id="eq-stock-ninja-split" class="block text-[10px] text-amber-800 font-bold mt-0.5">منها 12,500 ج ننجا (23 ترنج) + 137,280 ج باقي المحل</span>
                     </div>
 
-                    <div class="md:col-span-1 text-slate-400 font-black text-xl leading-none select-none">
-                        🟰
+                    <div class="md:col-span-1 flex items-center justify-center text-slate-400 font-black text-base md:text-xl leading-none select-none py-0.5 md:py-0">
+                        <span class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 text-xs sm:text-sm font-bold shadow-2xs">🟰</span>
                     </div>
 
                     <!-- Term 3: Available Cash on Hand -->
@@ -1579,8 +1603,8 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs border border-slate-200 rounded-xl overflow-hidden">
+                <div class="overflow-x-auto no-scrollbar border border-slate-200 rounded-xl">
+                    <table class="w-full min-w-[720px] text-right text-xs border-collapse">
                         <thead class="bg-slate-100 text-slate-700 font-bold">
                             <tr>
                                 <th class="p-2.5">القسم / التصنيف</th>
@@ -1663,8 +1687,8 @@
                     <span id="plan-items-sold-count-badge" class="text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-mono">0 صنف مباع</span>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs border border-slate-200 rounded-xl overflow-hidden">
+                <div class="overflow-x-auto no-scrollbar border border-slate-200 rounded-xl">
+                    <table class="w-full min-w-[720px] text-right text-xs border-collapse">
                         <thead class="bg-slate-100 text-slate-700 font-bold">
                             <tr>
                                 <th class="p-2.5">اسم الصنف الفعلي بالمحل</th>

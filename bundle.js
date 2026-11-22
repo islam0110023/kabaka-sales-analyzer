@@ -3095,6 +3095,8 @@ class App {
 
         const navFilters = document.getElementById('nav-btn-filters');
         const navRefresh = document.getElementById('nav-btn-refresh');
+        const navFiltersMobile = document.getElementById('nav-btn-filters-mobile');
+        const navRefreshMobile = document.getElementById('nav-btn-refresh-mobile');
         const mainNavTabs = document.getElementById('main-nav-tabs');
 
         Object.keys(screens).forEach(k => {
@@ -3111,11 +3113,15 @@ class App {
         if (screenName === 'dashboard' || screenName === 'planning') {
             if (navFilters) navFilters.style.display = 'inline-flex';
             if (navRefresh) navRefresh.style.display = 'inline-flex';
+            if (navFiltersMobile) navFiltersMobile.style.display = 'inline-flex';
+            if (navRefreshMobile) navRefreshMobile.style.display = 'inline-flex';
             if (mainNavTabs) mainNavTabs.style.display = 'flex';
         } else {
             // Screen 1 (login) or Screen 2 (filters) -> Hide dashboard tabs & controls completely
             if (navFilters) navFilters.style.display = 'none';
             if (navRefresh) navRefresh.style.display = 'none';
+            if (navFiltersMobile) navFiltersMobile.style.display = 'none';
+            if (navRefreshMobile) navRefreshMobile.style.display = 'none';
             if (mainNavTabs) mainNavTabs.style.display = 'none';
         }
 
@@ -3288,6 +3294,10 @@ class App {
         if (navFiltersBtn) {
             navFiltersBtn.addEventListener('click', () => this.showScreen('filters'));
         }
+        const navFiltersBtnMobile = document.getElementById('nav-btn-filters-mobile');
+        if (navFiltersBtnMobile) {
+            navFiltersBtnMobile.addEventListener('click', () => this.showScreen('filters'));
+        }
         const backFiltersBar = document.getElementById('btn-back-filters-bar');
         if (backFiltersBar) {
             backFiltersBar.addEventListener('click', () => this.showScreen('filters'));
@@ -3309,6 +3319,12 @@ class App {
         const navRefreshBtn = document.getElementById('nav-btn-refresh');
         if (navRefreshBtn) {
             navRefreshBtn.addEventListener('click', () => {
+                this.refreshReport();
+            });
+        }
+        const navRefreshBtnMobile = document.getElementById('nav-btn-refresh-mobile');
+        if (navRefreshBtnMobile) {
+            navRefreshBtnMobile.addEventListener('click', () => {
                 this.refreshReport();
             });
         }
@@ -3914,9 +3930,9 @@ class App {
         this.activeTab = tab;
         document.querySelectorAll('[data-shift-tab]').forEach(btn => {
             if (btn.dataset.shiftTab === tab) {
-                btn.className = 'flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs';
+                btn.className = 'shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-xs whitespace-nowrap';
             } else {
-                btn.className = 'flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100';
+                btn.className = 'shrink-0 flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold transition text-slate-700 hover:bg-slate-100 whitespace-nowrap';
             }
         });
 
@@ -4210,7 +4226,8 @@ class App {
     async refreshReport() {
         const refreshBtns = [
             document.getElementById('btn-refresh-report'),
-            document.getElementById('nav-btn-refresh')
+            document.getElementById('nav-btn-refresh'),
+            document.getElementById('nav-btn-refresh-mobile')
         ];
         refreshBtns.forEach(btn => {
             if (btn) {
