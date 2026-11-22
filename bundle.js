@@ -3016,9 +3016,7 @@ class App {
             if (remCb) remCb.checked = true;
         }
 
-        // Show login screen by default
-        this.showScreen('login');
-
+        // Show login screen by default unless state restored below
         // Check if opened via file:// protocol
         if (window.location.protocol === 'file:') {
             const banner = document.getElementById('file-protocol-banner');
@@ -3030,6 +3028,32 @@ class App {
 
         // Load store inventory from cache or test_medica.html
         this.loadStoreInventoryFromCache();
+
+        // Restore state on page refresh (F5) so user doesn't lose current report or screen
+        try {
+            const savedScreen = localStorage.getItem('kabaka_active_screen');
+            const savedReportHtml = localStorage.getItem('kabaka_current_report_html');
+            const savedReportSource = localStorage.getItem('kabaka_current_report_source') || 'salez_report2.php';
+            const isLoggedIn = localStorage.getItem('kabaka_is_logged_in') === 'true';
+
+            if (savedReportHtml) {
+                this.loadHTMLContent(savedReportHtml, savedReportSource);
+                if (savedScreen === 'planning') {
+                    this.showScreen('planning');
+                    this.renderPurchasePlanning();
+                } else {
+                    this.showScreen('dashboard');
+                }
+            } else if (isLoggedIn || savedScreen === 'filters') {
+                this.showScreen('filters');
+                this.loadDynamicFilters();
+            } else {
+                this.showScreen('login');
+            }
+        } catch (e) {
+            console.warn('Could not restore previous state:', e);
+            this.showScreen('login');
+        }
     }
 
     async runPageLoadSessionInit() {
@@ -3059,6 +3083,9 @@ class App {
 
     showScreen(screenName) {
         this.currentScreen = screenName;
+        try {
+            localStorage.setItem('kabaka_active_screen', screenName);
+        } catch (_) {}
         const screens = {
             login: document.getElementById('screen-login'),
             filters: document.getElementById('screen-filters'),
@@ -3267,7 +3294,15 @@ class App {
         }
         const backToLoginBtn = document.getElementById('btn-back-to-login');
         if (backToLoginBtn) {
-            backToLoginBtn.addEventListener('click', () => this.showScreen('login'));
+            backToLoginBtn.addEventListener('click', () => {
+                try {
+                    localStorage.removeItem('kabaka_active_screen');
+                    localStorage.removeItem('kabaka_is_logged_in');
+                    localStorage.removeItem('kabaka_current_report_html');
+                    localStorage.removeItem('kabaka_current_report_source');
+                } catch (_) {}
+                this.showScreen('login');
+            });
         }
 
         // Refresh Report Buttons (Navbar and Dashboard Toolbar)
@@ -3698,6 +3733,10 @@ class App {
 
         try {
             await this.network.login(username, password);
+            this.isLoggedIn = true;
+            try {
+                localStorage.setItem('kabaka_is_logged_in', 'true');
+            } catch (_) {}
             this.showToast('تم تسجيل الدخول بنجاح! جارٍ جلب قوائم الفلاتر...', 'success');
             
             // Move to Screen 2 & fetch dynamic filters
@@ -3847,6 +3886,11 @@ class App {
         try {
             this.rawHtml = htmlText;
             this.parsedData = SindbadParser.parse(htmlText);
+
+            try {
+                localStorage.setItem('kabaka_current_report_html', htmlText);
+                if (sourceLabel) localStorage.setItem('kabaka_current_report_source', sourceLabel);
+            } catch (_) {}
 
             const branchEl = document.getElementById('meta-branch');
             const datesEl = document.getElementById('meta-dates');
