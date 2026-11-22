@@ -3156,50 +3156,15 @@ class App {
         // Load store inventory from cache or test_medica.html
         this.loadStoreInventoryFromCache();
 
-        // Restore state on page refresh (F5) accurately respecting the active screen
+        // Always reset to Login screen on page refresh/reload (F5) to guarantee a fresh, authenticated cookie session
         try {
-            const savedScreen = localStorage.getItem('kabaka_active_screen') || 'login';
-            const savedReportHtml = localStorage.getItem('kabaka_current_report_html');
-            const savedReportSource = localStorage.getItem('kabaka_current_report_source') || 'salez_report2.php';
-            const isLoggedIn = localStorage.getItem('kabaka_is_logged_in') === 'true';
+            localStorage.removeItem('kabaka_is_logged_in');
+            localStorage.removeItem('kabaka_active_screen');
+            localStorage.removeItem('kabaka_current_report_html');
+            localStorage.removeItem('kabaka_current_report_source');
+        } catch (_) {}
 
-            // 1. If user was logged out or on login screen -> ALWAYS stay on login!
-            if (!isLoggedIn || savedScreen === 'login') {
-                this.showScreen('login');
-            }
-            // 2. If user was on filters screen -> ALWAYS stay on filters!
-            else if (savedScreen === 'filters') {
-                this.showScreen('filters');
-                this.loadDynamicFilters();
-            }
-            // 3. If user was on planning screen
-            else if (savedScreen === 'planning') {
-                if (savedReportHtml) {
-                    this.loadHTMLContent(savedReportHtml, savedReportSource);
-                    this.showScreen('planning');
-                    this.renderPurchasePlanning();
-                } else {
-                    this.showScreen('filters');
-                    this.loadDynamicFilters();
-                }
-            }
-            // 4. If user was on dashboard screen
-            else if (savedScreen === 'dashboard') {
-                if (savedReportHtml) {
-                    this.loadHTMLContent(savedReportHtml, savedReportSource);
-                    this.showScreen('dashboard');
-                } else {
-                    this.showScreen('filters');
-                    this.loadDynamicFilters();
-                }
-            }
-            else {
-                this.showScreen('login');
-            }
-        } catch (e) {
-            console.warn('Could not restore previous state:', e);
-            this.showScreen('login');
-        }
+        this.showScreen('login');
     }
 
     async runPageLoadSessionInit() {
