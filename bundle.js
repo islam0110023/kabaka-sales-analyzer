@@ -1051,12 +1051,22 @@ class ShiftAnalyzer {
 // 5. ANOMALY DETECTOR & AUDIT ALERTS
 // ==========================================
 class AnomalyDetector {
-    static detectAll(allItems, cutoffHour, dates) {
+    static detectAll(activeItems, cutoffHour, dates, activeTab = '', allItems = []) {
+        const fullList = (allItems && allItems.length > 0) ? allItems : activeItems;
+        let prevShift = [];
+        if (activeTab === 'day2_dawn') {
+            prevShift = [];
+        } else if (activeTab === 'day1_excluded') {
+            prevShift = this.detectPreviousShiftInvoices(activeItems, cutoffHour, dates);
+        } else {
+            prevShift = this.detectPreviousShiftInvoices(fullList, cutoffHour, dates);
+        }
+
         return {
-            priceDiscrepancies: this.detectPriceDiscrepancies(allItems),
-            duplicateItemsInInvoice: this.detectDuplicateItemsInInvoice(allItems),
-            lowMarginItems: this.detectLowMarginItems(allItems),
-            previousShiftInvoices: this.detectPreviousShiftInvoices(allItems, cutoffHour, dates)
+            priceDiscrepancies: this.detectPriceDiscrepancies(activeItems),
+            duplicateItemsInInvoice: this.detectDuplicateItemsInInvoice(activeItems),
+            lowMarginItems: this.detectLowMarginItems(activeItems),
+            previousShiftInvoices: prevShift
         };
     }
 
@@ -4391,7 +4401,7 @@ class App {
         const kpis = ShiftAnalyzer.computeKPIs(filteredItems, this.parsedData.summary);
         const itemsAggregated = ShiftAnalyzer.aggregateByItem(filteredItems, kpis.netSales, kpis.netProfit);
         const hourlyData = ShiftAnalyzer.aggregateByHour(filteredItems);
-        const anomalies = AnomalyDetector.detectAll(this.parsedData.items, this.cutoffHour, dates);
+        const anomalies = AnomalyDetector.detectAll(filteredItems, this.cutoffHour, dates, this.activeTab, this.parsedData.items);
 
         const tabNames = {
             [SHIFT_TABS.ACTUAL_SHIFT]: 'الشيفت الفعلي لليوم الأول',
@@ -5237,16 +5247,17 @@ class App {
         const pricesContainer = document.getElementById('container-anom-prices');
         if (pricesContainer) {
             if (anom.priceDiscrepancies.length === 0) {
-                pricesContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ لا توجد أي فروق أسعار بدون خصم.</p>';
+                pricesContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ لا توجد أي فروق أسعار بدون خصم في هذا العرض.</p>';
             } else {
                 pricesContainer.innerHTML = anom.priceDiscrepancies.map(p => `
-                    <div class="border border-amber-200 bg-amber-50 rounded-xl p-2.5 text-xs">
+                    <div class="border border-amber-200 bg-amber-50 hover:bg-amber-100/70 cursor-pointer rounded-xl p-2.5 text-xs transition active:scale-[0.99] group" data-anom-item="${p.code}" data-anom-item-name="${p.name}">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="font-bold text-slate-800">${p.name} <code class="text-[10px] bg-amber-100 px-1 py-0.5 rounded">${p.code}</code></span>
+                            <span class="font-bold text-slate-800">${p.name} <code class="text-[10px] bg-amber-100 px-1 py-0.5 rounded font-mono">${p.code}</code></span>
                             <span class="text-rose-700 font-bold text-[11px]">فارق ضائع: ${p.lostVariance.toFixed(2)}</span>
                         </div>
-                        <div class="text-slate-600 mb-1 text-[11px]">
-                            الأسعار المسجلة: <strong>${p.distinctPrices.map(pr => pr.toFixed(2)).join(' | ')}</strong>
+                        <div class="text-slate-600 mb-1 text-[11px] flex justify-between items-center">
+                            <span>الأسعار: <strong>${p.distinctPrices.map(pr => pr.toFixed(2)).join(' | ')}</strong></span>
+                            <span class="text-[10px] text-blue-600 font-bold group-hover:underline">عرض بالجدول ↗</span>
                         </div>
                         <div class="max-h-20 overflow-y-auto space-y-1 bg-white p-1.5 rounded border border-amber-100">
                             ${p.occurrences.map(o => `
@@ -5265,16 +5276,17 @@ class App {
         const dupesContainer = document.getElementById('container-anom-duplicates');
         if (dupesContainer) {
             if (anom.duplicateItemsInInvoice.length === 0) {
-                dupesContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ لا يوجد تكرار لنفس الصنف داخل نفس الفاتورة.</p>';
+                dupesContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ لا يوجد تكرار لنفس الصنف داخل نفس الفاتورة في هذا العرض.</p>';
             } else {
                 dupesContainer.innerHTML = anom.duplicateItemsInInvoice.map(d => `
-                    <div class="border border-indigo-200 bg-indigo-50 rounded-xl p-2.5 text-xs">
+                    <div class="border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/70 cursor-pointer rounded-xl p-2.5 text-xs transition active:scale-[0.99] group" data-anom-invoice="${d.invoiceNo}">
                         <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-slate-800">فاتورة: ${d.invoiceNo}</span>
+                            <span class="font-bold text-slate-800">فاتورة: <strong>${d.invoiceNo}</strong></span>
                             <span class="text-indigo-700 font-bold text-[11px]">${d.rowCount} أسطر لنفس الصنف</span>
                         </div>
-                        <div class="text-slate-600 text-[11px]">
-                            ${d.itemName} | إجمالي الكمية: <strong>${d.totalQty}</strong> (${d.time})
+                        <div class="text-slate-600 text-[11px] flex justify-between items-center">
+                            <span>${d.itemName} | إجمالي: <strong>${d.totalQty} ق</strong> (${d.time})</span>
+                            <span class="text-[10px] text-indigo-700 font-bold group-hover:underline">فتح الفاتورة ↗</span>
                         </div>
                     </div>
                 `).join('');
@@ -5285,10 +5297,10 @@ class App {
         const lowMarginContainer = document.getElementById('container-anom-lowmargin');
         if (lowMarginContainer) {
             if (anom.lowMarginItems.length === 0) {
-                lowMarginContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ جميع الأصناف تحقق هامش ربح أعلى من 20%.</p>';
+                lowMarginContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ جميع الأصناف تحقق هامش ربح أعلى من 20% في هذا العرض.</p>';
             } else {
                 lowMarginContainer.innerHTML = anom.lowMarginItems.map(m => `
-                    <div class="border border-rose-200 bg-rose-50 rounded-xl p-2.5 text-xs">
+                    <div class="border border-rose-200 bg-rose-50 hover:bg-rose-100/70 cursor-pointer rounded-xl p-2.5 text-xs transition active:scale-[0.99] group" data-anom-item="${m.code}" data-anom-item-name="${m.name}">
                         <div class="flex justify-between items-center mb-1">
                             <span class="font-bold text-slate-800">${m.name}</span>
                             <span class="text-rose-700 font-bold text-[11px]">الهامش: ${m.overallMargin}%</span>
@@ -5296,6 +5308,7 @@ class App {
                         <div class="flex justify-between text-[11px] text-slate-600 mt-1 bg-white p-1 rounded">
                             <span>المبيعات: <strong>${m.totalSales.toFixed(2)}</strong></span>
                             <span>الربح: <strong class="text-rose-600">${m.totalProfit.toFixed(2)}</strong></span>
+                            <span class="text-[10px] text-rose-700 font-bold group-hover:underline">عرض بالجدول ↗</span>
                         </div>
                     </div>
                 `).join('');
@@ -5305,28 +5318,110 @@ class App {
         // 4. Excluded Dawn Invoices
         const prevShiftContainer = document.getElementById('container-anom-prevshift');
         if (prevShiftContainer) {
-            if (anom.previousShiftInvoices.length === 0) {
-                prevShiftContainer.innerHTML = '<p class="text-slate-400 text-xs py-3 text-center">لا توجد فواتير مسجلة في فجر اليوم الأول قبل ساعة انتهاء الوردية.</p>';
+            const isExcludedTab = this.activeTab === SHIFT_TABS.DAY1_EXCLUDED;
+            const isDawnTab = this.activeTab === SHIFT_TABS.DAY2_DAWN;
+
+            if (isDawnTab) {
+                prevShiftContainer.innerHTML = '<p class="text-emerald-600 text-xs py-3 text-center font-bold">✓ لا توجد فواتير لسهرة أمس في فجر اليوم الثاني.</p>';
+            } else if (anom.previousShiftInvoices.length === 0) {
+                prevShiftContainer.innerHTML = '<p class="text-slate-400 text-xs py-3 text-center">لا توجد فواتير مسجلة في فجر اليوم الأول تخص سهرة الأمس.</p>';
             } else {
                 const totalExcludedSales = anom.previousShiftInvoices.reduce((a, c) => a + c.totalNet, 0);
                 prevShiftContainer.innerHTML = `
-                    <div class="text-[11px] text-slate-600 mb-2">
-                        تم رصد <strong>${anom.previousShiftInvoices.length}</strong> فاتورة بقيمة إجمالية <strong>${totalExcludedSales.toFixed(2)}</strong> تتبع سهرة الأمس:
+                    <div class="flex items-center justify-between text-[11px] text-slate-600 mb-2">
+                        <span>تم رصد <strong>${anom.previousShiftInvoices.length}</strong> فاتورة بقيمة <strong>${totalExcludedSales.toFixed(2)} ج.م</strong>:</span>
+                        <button type="button" class="btn-anom-goto-excluded text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold px-2 py-0.5 rounded transition ${isExcludedTab ? 'opacity-50 cursor-default' : ''}">
+                            ${isExcludedTab ? 'معروضة بالتبويب' : 'عرض التبويب ↗'}
+                        </button>
                     </div>
                     <div class="max-h-40 overflow-y-auto space-y-1">
                         ${anom.previousShiftInvoices.map(s => `
-                            <div class="border border-slate-200 p-1.5 rounded-lg text-xs flex justify-between items-center bg-white">
+                            <div class="border border-slate-200 p-1.5 rounded-lg text-xs flex justify-between items-center bg-white hover:bg-slate-100 cursor-pointer transition active:scale-[0.99] group" data-anom-invoice="${s.invoiceNo}">
                                 <div>
                                     <span class="font-bold text-slate-800">${s.invoiceNo}</span>
                                     <span class="text-slate-400 text-[10px] mr-1">(${s.time})</span>
                                 </div>
-                                <span class="text-blue-600 font-bold">${s.totalNet.toFixed(2)}</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-blue-600 font-bold">${s.totalNet.toFixed(2)}</span>
+                                    <span class="text-[10px] text-slate-400 group-hover:text-blue-600 font-mono">فتح ↗</span>
+                                </div>
                             </div>
                         `).join('')}
                     </div>
                 `;
             }
         }
+
+        // Interactive Click Handlers for Anomalies
+        document.querySelectorAll('#container-anom-prices [data-anom-item]').forEach(el => {
+            el.addEventListener('click', () => {
+                const code = el.dataset.anomItem;
+                const name = el.dataset.anomItemName || code;
+                const input = document.getElementById('input-items-search');
+                if (input) {
+                    input.value = code;
+                    this.itemsSearch = code.toLowerCase();
+                    this.itemsPage = 1;
+                    this.renderItemsTable();
+                    document.getElementById('section-items-table')?.scrollIntoView({ behavior: 'smooth' });
+                    this.showToast(`تم تصفية جدول الأصناف للصنف: ${name}`, 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('#container-anom-duplicates [data-anom-invoice]').forEach(el => {
+            el.addEventListener('click', () => {
+                const inv = el.dataset.anomInvoice;
+                const input = document.getElementById('input-invoices-search');
+                if (input) {
+                    input.value = inv;
+                    this.invoicesSearch = inv.toLowerCase();
+                    this.invoicesPage = 1;
+                    this.renderInvoicesTable();
+                    document.getElementById('section-invoices-table')?.scrollIntoView({ behavior: 'smooth' });
+                    this.showToast(`تم تصفية جدول الفواتير للفاتورة رقم: ${inv}`, 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('#container-anom-lowmargin [data-anom-item]').forEach(el => {
+            el.addEventListener('click', () => {
+                const code = el.dataset.anomItem;
+                const name = el.dataset.anomItemName || code;
+                const input = document.getElementById('input-items-search');
+                if (input) {
+                    input.value = code;
+                    this.itemsSearch = code.toLowerCase();
+                    this.itemsPage = 1;
+                    this.renderItemsTable();
+                    document.getElementById('section-items-table')?.scrollIntoView({ behavior: 'smooth' });
+                    this.showToast(`تم تصفية جدول الأصناف للصنف: ${name}`, 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('#container-anom-prevshift [data-anom-invoice]').forEach(el => {
+            el.addEventListener('click', () => {
+                const inv = el.dataset.anomInvoice;
+                const input = document.getElementById('input-invoices-search');
+                if (input) {
+                    input.value = inv;
+                    this.invoicesSearch = inv.toLowerCase();
+                    this.invoicesPage = 1;
+                    this.renderInvoicesTable();
+                    document.getElementById('section-invoices-table')?.scrollIntoView({ behavior: 'smooth' });
+                    this.showToast(`تم تصفية جدول الفواتير للفاتورة رقم: ${inv}`, 'info');
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-anom-goto-excluded').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.setActiveTab(SHIFT_TABS.DAY1_EXCLUDED);
+                this.showToast('تم التحويل لتبويب فواتير فجر الأمس المستبعدة', 'info');
+            });
+        });
     }
 
     renderItemsTable() {

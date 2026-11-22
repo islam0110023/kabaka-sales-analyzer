@@ -6,12 +6,22 @@
 // 4. Invoices recorded during Day 1 dawn (belonging to previous shift)
 
 export class AnomalyDetector {
-    static detectAll(allItems, cutoffHour, dates) {
+    static detectAll(activeItems, cutoffHour, dates, activeTab = '', allItems = []) {
+        const fullList = (allItems && allItems.length > 0) ? allItems : activeItems;
+        let prevShift = [];
+        if (activeTab === 'day2_dawn') {
+            prevShift = [];
+        } else if (activeTab === 'day1_excluded') {
+            prevShift = this.detectPreviousShiftInvoices(activeItems, cutoffHour, dates);
+        } else {
+            prevShift = this.detectPreviousShiftInvoices(fullList, cutoffHour, dates);
+        }
+
         return {
-            priceDiscrepancies: this.detectPriceDiscrepancies(allItems),
-            duplicateItemsInInvoice: this.detectDuplicateItemsInInvoice(allItems),
-            lowMarginItems: this.detectLowMarginItems(allItems),
-            previousShiftInvoices: this.detectPreviousShiftInvoices(allItems, cutoffHour, dates)
+            priceDiscrepancies: this.detectPriceDiscrepancies(activeItems),
+            duplicateItemsInInvoice: this.detectDuplicateItemsInInvoice(activeItems),
+            lowMarginItems: this.detectLowMarginItems(activeItems),
+            previousShiftInvoices: prevShift
         };
     }
 
