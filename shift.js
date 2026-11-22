@@ -66,7 +66,20 @@ export class ShiftAnalyzer {
             return dStr;
         };
 
-        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
+        const parseD = (dStr) => {
+            if (!dStr) return null;
+            const p = dStr.split(/[-/.]/);
+            if (p.length === 3) {
+                if (p[0].length === 4) return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+                return new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+            }
+            return new Date(dStr);
+        };
+        const dStart = parseD(meta.startDate);
+        const dEnd = parseD(meta.endDate);
+        const diffDays = (dStart && dEnd) ? Math.round((dEnd.getTime() - dStart.getTime()) / (24 * 60 * 60 * 1000)) : 0;
+        const isMultiDay = uniqueDates.length > 2 || diffDays > 1;
+
         const startDate = normalizeDateDisplay(uniqueDates[0] || meta.startDate || '');
         const endDate = normalizeDateDisplay(isMultiDay ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') : (uniqueDates[1] || meta.endDate || ''));
 

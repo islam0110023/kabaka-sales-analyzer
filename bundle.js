@@ -784,7 +784,20 @@ class ShiftAnalyzer {
             return dStr;
         };
 
-        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
+        const parseD = (dStr) => {
+            if (!dStr) return null;
+            const p = dStr.split(/[-/.]/);
+            if (p.length === 3) {
+                if (p[0].length === 4) return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+                return new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+            }
+            return new Date(dStr);
+        };
+        const dStart = parseD(meta.startDate);
+        const dEnd = parseD(meta.endDate);
+        const diffDays = (dStart && dEnd) ? Math.round((dEnd.getTime() - dStart.getTime()) / (24 * 60 * 60 * 1000)) : 0;
+        const isMultiDay = uniqueDates.length > 2 || diffDays > 1;
+
         const startDate = normalizeDateDisplay(uniqueDates[0] || meta.startDate || '');
         const endDate = normalizeDateDisplay(isMultiDay ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') : (uniqueDates[1] || meta.endDate || ''));
 
@@ -4448,48 +4461,98 @@ class App {
         const invLabelEl = document.getElementById('shift-banner-invoices-label');
 
         const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2) || dates.isMultiDay;
+        const currentTab = this.activeTab || (isRange ? SHIFT_TABS.ALL_REPORT : SHIFT_TABS.ACTUAL_SHIFT);
         const cutoffStr = String(this.cutoffHour).padStart(2, '0') + ':00 ص';
         const displayStart = dates.startDate || dates.day1;
         const displayEnd = dates.endDate || dates.day2;
         const daysCount = dates.allDates && dates.allDates.length > 0 ? dates.allDates.length : 1;
 
-        if (badgeEl) {
-            badgeEl.textContent = isRange ? 'تقرير فترة مجمعة ✓' : 'الشيفت الفعلي المكتمل ✓';
-            badgeEl.className = isRange
-                ? 'text-xs bg-indigo-500 text-white font-bold px-2.5 py-0.5 rounded-full'
-                : 'text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full';
-        }
-
-        if (invLabelEl) {
-            invLabelEl.textContent = isRange ? 'إجمالي الفواتير' : 'فواتير الشيفت';
-        }
-
-        if (titleEl) {
-            titleEl.textContent = isRange
-                ? `تقرير مبيعات الفترة المجمعة من ${displayStart} إلى ${displayEnd} (${daysCount} أيام)`
-                : `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
-        }
-        if (descEl) {
-            if (isRange) {
-                descEl.innerHTML = `
-                    تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${displayStart}</span> و <span class="font-bold underline text-white">${displayEnd}</span>.
-                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${daysCount}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>
-                `;
-            } else {
+        if (currentTab === SHIFT_TABS.ACTUAL_SHIFT) {
+            // الشيفت الفعلي المكتمل
+            if (badgeEl) {
+                badgeEl.textContent = 'الشيفت الفعلي المكتمل ✓';
+                badgeEl.className = 'text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full';
+            }
+            if (invLabelEl) invLabelEl.textContent = 'فواتير الشيفت';
+            if (titleEl) {
+                titleEl.textContent = `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
+            }
+            if (descEl) {
                 descEl.innerHTML = `
                     تشمل مبيعات وردية <span class="font-bold underline text-white">${dates.day1}</span> من الساعة <strong>${cutoffStr}</strong> حتى 12:00 منتصف الليل + سهرة فجر <span class="font-bold underline text-white">${dates.day2}</span> حتى <strong>${cutoffStr}</strong>.
                     <span class="block mt-0.5 text-blue-200">تم استبعاد <strong>${counts[SHIFT_TABS.DAY1_EXCLUDED] || 0}</strong> فاتورة تخص سهرة أمس تلقائياً.</span>
                 `;
             }
+        } else if (currentTab === SHIFT_TABS.ALL_REPORT) {
+            // إجمالي التقرير بالكامل (الخام / الفترة المجمعة)
+            if (badgeEl) {
+                badgeEl.textContent = isRange ? `تقرير فترة مجمعة (${daysCount} يوم) ✓` : 'إجمالي التقرير بالكامل (الخام) ✓';
+                badgeEl.className = isRange
+                    ? 'text-xs bg-indigo-500 text-white font-bold px-2.5 py-0.5 rounded-full'
+                    : 'text-xs bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full';
+            }
+            if (invLabelEl) invLabelEl.textContent = isRange ? 'إجمالي الفواتير' : 'فواتير التقرير';
+            if (titleEl) {
+                titleEl.textContent = isRange
+                    ? `تقرير مبيعات الفترة المجمعة من ${displayStart} إلى ${displayEnd} (${daysCount} أيام)`
+                    : `إجمالي التقرير بالكامل (الخام) ليوم ${dates.day1} وفجر ${dates.day2}`;
+            }
+            if (descEl) {
+                descEl.innerHTML = isRange
+                    ? `تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${displayStart}</span> و <span class="font-bold underline text-white">${displayEnd}</span>.
+                       <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${daysCount}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>`
+                    : `كافة الفواتير المسجلة بالتقرير الخام ليوم <span class="font-bold underline text-white">${dates.day1}</span> وفجر <span class="font-bold underline text-white">${dates.day2}</span> دون أي استبعاد (إجمالي <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة).`;
+            }
+        } else if (currentTab === SHIFT_TABS.DAY1_ONLY) {
+            // مبيعات تاريخ اليوم الأول فقط
+            if (badgeEl) {
+                badgeEl.textContent = `تاريخ ${dates.day1} فقط ✓`;
+                badgeEl.className = 'text-xs bg-slate-600 text-white font-bold px-2 py-0.5 rounded-full';
+            }
+            if (invLabelEl) invLabelEl.textContent = 'فواتير اليوم الأول';
+            if (titleEl) {
+                titleEl.textContent = `مبيعات تاريخ ${dates.day1} فقط (00:00 إلى 23:59)`;
+            }
+            if (descEl) {
+                descEl.innerHTML = `مبيعات اليوم التقويمي الأول فقط <span class="font-bold underline text-white">${dates.day1}</span> بالكامل دون سهرة فجر اليوم التالي.`;
+            }
+        } else if (currentTab === SHIFT_TABS.DAY2_DAWN) {
+            // سهرة بعد 12 بالليل فقط (فجر 2)
+            if (badgeEl) {
+                badgeEl.textContent = `سهرة بعد 12 بالليل (فجر ${dates.day2}) ✓`;
+                badgeEl.className = 'text-xs bg-amber-600 text-white font-bold px-2 py-0.5 rounded-full';
+            }
+            if (invLabelEl) invLabelEl.textContent = 'فواتير السهرة';
+            if (titleEl) {
+                titleEl.textContent = `سهرة بعد 12 بالليل فقط (فجر ${dates.day2} حتى ${cutoffStr})`;
+            }
+            if (descEl) {
+                descEl.innerHTML = `فواتير السهرة المسجلة بعد منتصف الليل فجر <span class="font-bold underline text-white">${dates.day2}</span> قبل ساعة انتهاء الشيفت (${cutoffStr}).`;
+            }
+        } else if (currentTab === SHIFT_TABS.DAY1_EXCLUDED) {
+            // فواتير فجر الأمس المستبعدة
+            if (badgeEl) {
+                badgeEl.textContent = 'فواتير فجر الأمس المستبعدة ⚠️';
+                badgeEl.className = 'text-xs bg-rose-600 text-white font-bold px-2 py-0.5 rounded-full';
+            }
+            if (invLabelEl) invLabelEl.textContent = 'فواتير مستبعدة';
+            if (titleEl) {
+                titleEl.textContent = `فواتير فجر ${dates.day1} المستبعدة (تخص سهرة الأمس)`;
+            }
+            if (descEl) {
+                descEl.innerHTML = `فواتير سهرة أمس الصادرة فجر <span class="font-bold underline text-white">${dates.day1}</span> قبل الساعة ${cutoffStr} والتي تم استبعادها من شيفت اليوم.`;
+            }
         }
-        if (invEl) invEl.textContent = isRange ? (counts[SHIFT_TABS.ALL_REPORT] || 0) : (counts[SHIFT_TABS.ACTUAL_SHIFT] || 0);
+
+        // Invoices count on banner adapts to currently selected tab
+        if (invEl) invEl.textContent = counts[currentTab] || 0;
         if (exclEl) exclEl.textContent = counts[SHIFT_TABS.DAY1_EXCLUDED] || 0;
         if (dawnEl) dawnEl.textContent = counts[SHIFT_TABS.DAY2_DAWN] || 0;
 
-        // Compute banner stats: In multi-day aggregated mode (isRange), calculate returns & charity on ALL_REPORT
-        // In single shift mode, calculate on ACTUAL_SHIFT
-        const bannerTargetTab = isRange ? SHIFT_TABS.ALL_REPORT : SHIFT_TABS.ACTUAL_SHIFT;
-        const bannerItems = ShiftAnalyzer.filterItems(this.parsedData.items, bannerTargetTab, this.cutoffHour, dates);
+        // Compute banner stats (charity and returns) to match the selected tab!
+        // When user chooses ACTUAL_SHIFT, it returns shift stats.
+        // When user chooses ALL_REPORT on a multi-day report, it returns aggregated report stats!
+        const bannerItems = ShiftAnalyzer.filterItems(this.parsedData.items, currentTab, this.cutoffHour, dates);
         const bannerKPIs = ShiftAnalyzer.computeKPIs(bannerItems);
 
         const charityBannerEl = document.getElementById('shift-banner-charity');
