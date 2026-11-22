@@ -735,7 +735,7 @@ const SHIFT_TABS = {
 };
 
 class ShiftAnalyzer {
-    static resolveDates(items, meta) {
+    static resolveDates(items, meta = {}) {
         let uniqueDates = [...new Set(items.map(i => i.date).filter(d => d && /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(d.trim())))];
         uniqueDates.sort((a, b) => {
             const parseDateObj = (dStr) => {
@@ -772,7 +772,30 @@ class ShiftAnalyzer {
             }
         }
 
-        return { day1, day2, allDates: uniqueDates };
+        const normalizeDateDisplay = (dStr) => {
+            if (!dStr) return '';
+            const parts = dStr.trim().split(/[-/.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) { // YYYY-MM-DD -> DD-MM-YYYY
+                    return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+                }
+                return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+            }
+            return dStr;
+        };
+
+        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
+        const startDate = normalizeDateDisplay(uniqueDates[0] || meta.startDate || '');
+        const endDate = normalizeDateDisplay(isMultiDay ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') : (uniqueDates[1] || meta.endDate || ''));
+
+        return { 
+            day1, 
+            day2, 
+            startDate: startDate || day1,
+            endDate: endDate || day2,
+            allDates: uniqueDates, 
+            isMultiDay 
+        };
     }
 
     static filterItems(items, tab, cutoffHour, dates) {
@@ -4421,20 +4444,36 @@ class App {
         const invEl = document.getElementById('shift-banner-invoices');
         const exclEl = document.getElementById('shift-banner-excluded');
         const dawnEl = document.getElementById('shift-banner-dawn');
+        const badgeEl = document.getElementById('shift-banner-badge');
+        const invLabelEl = document.getElementById('shift-banner-invoices-label');
 
-        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2);
+        const isRange = this.lastFetchedDateMode === 'range' || (dates.allDates && dates.allDates.length > 2) || dates.isMultiDay;
         const cutoffStr = String(this.cutoffHour).padStart(2, '0') + ':00 ص';
+        const displayStart = dates.startDate || dates.day1;
+        const displayEnd = dates.endDate || dates.day2;
+        const daysCount = dates.allDates && dates.allDates.length > 0 ? dates.allDates.length : 1;
+
+        if (badgeEl) {
+            badgeEl.textContent = isRange ? 'تقرير فترة مجمعة ✓' : 'الشيفت الفعلي المكتمل ✓';
+            badgeEl.className = isRange
+                ? 'text-xs bg-indigo-500 text-white font-bold px-2.5 py-0.5 rounded-full'
+                : 'text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full';
+        }
+
+        if (invLabelEl) {
+            invLabelEl.textContent = isRange ? 'إجمالي الفواتير' : 'فواتير الشيفت';
+        }
 
         if (titleEl) {
             titleEl.textContent = isRange
-                ? `تقرير مبيعات الفترة المجمعة من ${dates.day1} إلى ${dates.day2} (${dates.allDates ? dates.allDates.length : 'متعدد'} أيام)`
+                ? `تقرير مبيعات الفترة المجمعة من ${displayStart} إلى ${displayEnd} (${daysCount} أيام)`
                 : `وردية يوم ${dates.day1} (ممتدة بعد 12 بالليل إلى فجر ${dates.day2})`;
         }
         if (descEl) {
             if (isRange) {
                 descEl.innerHTML = `
-                    تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${dates.day1}</span> و <span class="font-bold underline text-white">${dates.day2}</span>.
-                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${dates.allDates ? dates.allDates.length : 0}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>
+                    تقرير مجمع لكافة المبيعات الصادرة بين <span class="font-bold underline text-white">${displayStart}</span> و <span class="font-bold underline text-white">${displayEnd}</span>.
+                    <span class="block mt-0.5 text-blue-200">إجمالي الأيام المسجلة: <strong>${daysCount}</strong> يوم | إجمالي الفواتير: <strong>${counts[SHIFT_TABS.ALL_REPORT] || 0}</strong> فاتورة.</span>
                 `;
             } else {
                 descEl.innerHTML = `
@@ -4447,18 +4486,20 @@ class App {
         if (exclEl) exclEl.textContent = counts[SHIFT_TABS.DAY1_EXCLUDED] || 0;
         if (dawnEl) dawnEl.textContent = counts[SHIFT_TABS.DAY2_DAWN] || 0;
 
+        // Compute banner stats: In multi-day aggregated mode (isRange), calculate returns & charity on ALL_REPORT
+        // In single shift mode, calculate on ACTUAL_SHIFT
+        const bannerTargetTab = isRange ? SHIFT_TABS.ALL_REPORT : SHIFT_TABS.ACTUAL_SHIFT;
+        const bannerItems = ShiftAnalyzer.filterItems(this.parsedData.items, bannerTargetTab, this.cutoffHour, dates);
+        const bannerKPIs = ShiftAnalyzer.computeKPIs(bannerItems);
+
         const charityBannerEl = document.getElementById('shift-banner-charity');
         if (charityBannerEl) {
-            const actualItems = ShiftAnalyzer.filterItems(this.parsedData.items, SHIFT_TABS.ACTUAL_SHIFT, this.cutoffHour, dates);
-            const actualKPIs = ShiftAnalyzer.computeKPIs(actualItems);
-            charityBannerEl.textContent = `${actualKPIs.charityAmount.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+            charityBannerEl.textContent = `${bannerKPIs.charityAmount.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
         }
 
         const returnsBannerEl = document.getElementById('shift-banner-returns');
         if (returnsBannerEl) {
-            const actualItems = ShiftAnalyzer.filterItems(this.parsedData.items, SHIFT_TABS.ACTUAL_SHIFT, this.cutoffHour, dates);
-            const actualKPIs = ShiftAnalyzer.computeKPIs(actualItems);
-            returnsBannerEl.textContent = `${actualKPIs.returnsTotal.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م (${actualKPIs.returnsQty} ق)`;
+            returnsBannerEl.textContent = `${bannerKPIs.returnsTotal.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م (${bannerKPIs.returnsQty} ق)`;
         }
     }
 

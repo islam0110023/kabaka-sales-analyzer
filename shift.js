@@ -13,7 +13,7 @@ export class ShiftAnalyzer {
     /**
      * Determines Day 1 and Day 2 from dates present in items or metadata
      */
-    static resolveDates(items, meta) {
+    static resolveDates(items, meta = {}) {
         let uniqueDates = [...new Set(items.map(i => i.date).filter(d => d && /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(d.trim())))];
         
         // Sort dates chronologically if possible
@@ -54,7 +54,30 @@ export class ShiftAnalyzer {
             }
         }
 
-        return { day1, day2, allDates: uniqueDates };
+        const normalizeDateDisplay = (dStr) => {
+            if (!dStr) return '';
+            const parts = dStr.trim().split(/[-/.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) { // YYYY-MM-DD -> DD-MM-YYYY
+                    return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+                }
+                return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+            }
+            return dStr;
+        };
+
+        const isMultiDay = uniqueDates.length > 2 || (meta.startDate && meta.endDate && meta.startDate !== meta.endDate);
+        const startDate = normalizeDateDisplay(uniqueDates[0] || meta.startDate || '');
+        const endDate = normalizeDateDisplay(isMultiDay ? (uniqueDates[uniqueDates.length - 1] || meta.endDate || '') : (uniqueDates[1] || meta.endDate || ''));
+
+        return { 
+            day1, 
+            day2, 
+            startDate: startDate || day1,
+            endDate: endDate || day2,
+            allDates: uniqueDates,
+            isMultiDay
+        };
     }
 
     /**
