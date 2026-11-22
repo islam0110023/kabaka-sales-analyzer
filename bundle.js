@@ -3156,25 +3156,44 @@ class App {
         // Load store inventory from cache or test_medica.html
         this.loadStoreInventoryFromCache();
 
-        // Restore state on page refresh (F5) so user doesn't lose current report or screen
+        // Restore state on page refresh (F5) accurately respecting the active screen
         try {
-            const savedScreen = localStorage.getItem('kabaka_active_screen');
+            const savedScreen = localStorage.getItem('kabaka_active_screen') || 'login';
             const savedReportHtml = localStorage.getItem('kabaka_current_report_html');
             const savedReportSource = localStorage.getItem('kabaka_current_report_source') || 'salez_report2.php';
             const isLoggedIn = localStorage.getItem('kabaka_is_logged_in') === 'true';
 
-            if (savedReportHtml) {
-                this.loadHTMLContent(savedReportHtml, savedReportSource);
-                if (savedScreen === 'planning') {
+            // 1. If user was logged out or on login screen -> ALWAYS stay on login!
+            if (!isLoggedIn || savedScreen === 'login') {
+                this.showScreen('login');
+            }
+            // 2. If user was on filters screen -> ALWAYS stay on filters!
+            else if (savedScreen === 'filters') {
+                this.showScreen('filters');
+                this.loadDynamicFilters();
+            }
+            // 3. If user was on planning screen
+            else if (savedScreen === 'planning') {
+                if (savedReportHtml) {
+                    this.loadHTMLContent(savedReportHtml, savedReportSource);
                     this.showScreen('planning');
                     this.renderPurchasePlanning();
                 } else {
-                    this.showScreen('dashboard');
+                    this.showScreen('filters');
+                    this.loadDynamicFilters();
                 }
-            } else if (isLoggedIn || savedScreen === 'filters') {
-                this.showScreen('filters');
-                this.loadDynamicFilters();
-            } else {
+            }
+            // 4. If user was on dashboard screen
+            else if (savedScreen === 'dashboard') {
+                if (savedReportHtml) {
+                    this.loadHTMLContent(savedReportHtml, savedReportSource);
+                    this.showScreen('dashboard');
+                } else {
+                    this.showScreen('filters');
+                    this.loadDynamicFilters();
+                }
+            }
+            else {
                 this.showScreen('login');
             }
         } catch (e) {
@@ -3208,13 +3227,18 @@ class App {
         }
     }
 
-    handleSessionExpired(reasonMessage = 'انتهت صلاحية جلسة سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.') {
+    handleSessionExpired(reasonMessage = 'انتهت صلاحية جلسة سندباد (الكوكي غير صالح أو منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.') {
         console.warn('Session expired or cookie invalid:', reasonMessage);
         try {
             localStorage.removeItem('kabaka_is_logged_in');
             localStorage.removeItem('kabaka_active_screen');
+            localStorage.removeItem('kabaka_current_report_html');
+            localStorage.removeItem('kabaka_current_report_source');
+            localStorage.removeItem('kabaka_sindbad_cookie');
         } catch (_) {}
 
+        this.rawHtml = '';
+        this.parsedData = null;
         this.showScreen('login');
         this.showToast(reasonMessage, 'warning');
 
@@ -3270,8 +3294,14 @@ class App {
             if (navFiltersMobile) navFiltersMobile.style.display = 'inline-flex';
             if (navRefreshMobile) navRefreshMobile.style.display = 'inline-flex';
             if (mainNavTabs) mainNavTabs.style.display = 'flex';
+        } else if (screenName === 'filters') {
+            if (navFilters) navFilters.style.display = 'none';
+            if (navRefresh) navRefresh.style.display = 'inline-flex';
+            if (navFiltersMobile) navFiltersMobile.style.display = 'none';
+            if (navRefreshMobile) navRefreshMobile.style.display = 'inline-flex';
+            if (mainNavTabs) mainNavTabs.style.display = 'none';
         } else {
-            // Screen 1 (login) or Screen 2 (filters) -> Hide dashboard tabs & controls completely
+            // Screen 1 (login) -> Hide dashboard tabs & controls completely
             if (navFilters) navFilters.style.display = 'none';
             if (navRefresh) navRefresh.style.display = 'none';
             if (navFiltersMobile) navFiltersMobile.style.display = 'none';
@@ -3569,17 +3599,17 @@ class App {
             });
         }
 
-        // Refresh Report Buttons (Navbar and Dashboard Toolbar)
+        // Smart Reload Buttons (Navbar Desktop & Mobile, Dashboard Toolbar)
         const navRefreshBtn = document.getElementById('nav-btn-refresh');
         if (navRefreshBtn) {
             navRefreshBtn.addEventListener('click', () => {
-                this.refreshReport();
+                this.handleSmartReload();
             });
         }
         const navRefreshBtnMobile = document.getElementById('nav-btn-refresh-mobile');
         if (navRefreshBtnMobile) {
             navRefreshBtnMobile.addEventListener('click', () => {
-                this.refreshReport();
+                this.handleSmartReload();
             });
         }
         const dashboardRefreshBtn = document.getElementById('btn-refresh-report');
@@ -4639,6 +4669,41 @@ class App {
         this.showToast('تم تصفير جرد النقدية والمصروفات والتسويات بنجاح', 'info');
     }
 
+    async handleSmartReload() {
+        const navRefresh = document.getElementById('nav-btn-refresh');
+        const navRefreshMobile = document.getElementById('nav-btn-refresh-mobile');
+        const spinIcons = [
+            navRefresh?.querySelector('svg'),
+            navRefreshMobile?.querySelector('svg')
+        ];
+        spinIcons.forEach(icon => icon?.classList.add('animate-spin'));
+        if (navRefresh) navRefresh.disabled = true;
+        if (navRefreshMobile) navRefreshMobile.disabled = true;
+
+        try {
+            if (this.currentScreen === 'filters') {
+                this.showToast('جارٍ تحديث خيارات الفلاتر والمجموعات من سندباد...', 'info');
+                await this.loadDynamicFilters();
+            } else if (this.currentScreen === 'dashboard' || this.currentScreen === 'planning') {
+                await this.refreshReport();
+            } else if (this.currentScreen === 'login') {
+                await this.runPageLoadSessionInit();
+                this.showToast('تم فحص اتصال السيرفر وتحديث حالة الجلسة', 'info');
+            } else {
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error('Smart reload error:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي') || err.message.includes('401')))) {
+                this.handleSessionExpired('انتهت جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+            }
+        } finally {
+            spinIcons.forEach(icon => icon?.classList.remove('animate-spin'));
+            if (navRefresh) navRefresh.disabled = false;
+            if (navRefreshMobile) navRefreshMobile.disabled = false;
+        }
+    }
+
     async refreshReport() {
         const refreshBtns = [
             document.getElementById('btn-refresh-report'),
@@ -4728,16 +4793,11 @@ class App {
 
         } catch (err) {
             console.error('Refresh error:', err);
-            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي') || err.message.includes('401')))) {
                 this.handleSessionExpired('فشل تحديث التقرير لأن جلسة سندباد انتهت (الكوكي غير صالح أو منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
                 return;
             }
-            if (this.rawHtml) {
-                this.showToast('تعذر الاتصال المباشر بسندباد (' + (err.message || 'خطأ شبكة') + ')، تم إعادة تحليل التقرير السابق', 'warning');
-                this.loadHTMLContent(this.rawHtml, 'تحديث البيانات الحالية');
-            } else {
-                this.showToast('تعذر تحديث التقرير: ' + (err.message || 'خطأ غير معروف'), 'error');
-            }
+            this.showToast('تعذر تحديث البيانات من سندباد (' + (err.message || 'خطأ اتصال') + ')', 'warning');
         } finally {
             refreshBtns.forEach(btn => {
                 if (btn) {

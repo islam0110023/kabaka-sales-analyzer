@@ -1,4 +1,4 @@
-﻿$port = 5500
+$port = 5500
 $path = $PSScriptRoot
 $cookieFile = Join-Path $path "sindbad_session_cookies.txt"
 

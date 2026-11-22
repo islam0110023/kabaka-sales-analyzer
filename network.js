@@ -9,9 +9,9 @@
 
 export class NetworkManager {
     constructor(callbacks = {}) {
-        this.onStatus = callbacks.onStatus || (() => {});
-        this.onError = callbacks.onError || (() => {});
-        this.onCorsBlocked = callbacks.onCorsBlocked || (() => {});
+        this.onStatus = callbacks.onStatus || (() => { });
+        this.onError = callbacks.onError || (() => { });
+        this.onCorsBlocked = callbacks.onCorsBlocked || (() => { });
         this.corsProxy = '';
         this.lastCredentials = null;
         this.retryCount = 0;
@@ -144,7 +144,7 @@ export class NetworkManager {
                     if (data.success) {
                         if (data.cookie) {
                             this.sessionCookie = data.cookie;
-                            try { localStorage.setItem('kabaka_sindbad_cookie', data.cookie); } catch (_) {}
+                            try { localStorage.setItem('kabaka_sindbad_cookie', data.cookie); } catch (_) { }
                         }
                         return { success: true, method: 'local_proxy' };
                     } else {
@@ -495,7 +495,7 @@ export class NetworkManager {
 
     _handleCorsOrNetworkError(err, contextMsg) {
         const isCors = (
-            err.name === 'TypeError' && 
+            err.name === 'TypeError' &&
             (err.message.includes('fetch') || err.message.includes('NetworkError') || err.message === 'Failed to fetch')
         );
 
