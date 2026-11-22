@@ -15,6 +15,19 @@ export class NetworkManager {
         this.corsProxy = '';
         this.lastCredentials = null;
         this.retryCount = 0;
+        try {
+            this.sessionCookie = localStorage.getItem('kabaka_sindbad_cookie') || '';
+        } catch (_) {
+            this.sessionCookie = '';
+        }
+    }
+
+    getProxyHeaders(extraHeaders = {}) {
+        const headers = { ...extraHeaders };
+        if (this.sessionCookie) {
+            headers['X-Sindbad-Cookie'] = this.sessionCookie;
+        }
+        return headers;
     }
 
     setCorsProxy(proxy) {
@@ -129,6 +142,10 @@ export class NetworkManager {
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.success) {
+                        if (data.cookie) {
+                            this.sessionCookie = data.cookie;
+                            try { localStorage.setItem('kabaka_sindbad_cookie', data.cookie); } catch (_) {}
+                        }
                         return { success: true, method: 'local_proxy' };
                     } else {
                         throw new Error(data.message || 'فشل تسجيل الدخول في سندباد');
@@ -205,7 +222,13 @@ export class NetworkManager {
             try {
                 this.onStatus({ step: 3, message: 'جلب قوائم الفلاتر من منصة سندباد...' });
                 const baseUrl = this.getProxyBaseUrl();
-                const resp = await fetch(`${baseUrl}/api/filters`);
+                const resp = await fetch(`${baseUrl}/api/filters`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: this.getProxyHeaders({
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    })
+                });
                 if (resp.status === 401 || resp.status === 403) {
                     const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
                     err.isSessionExpired = true;
@@ -272,7 +295,11 @@ export class NetworkManager {
         if (await this.isLocalProxyAvailable()) {
             try {
                 const baseUrl = this.getProxyBaseUrl();
-                const resp = await fetch(`${baseUrl}/api/drugs?q=${encodeURIComponent(groupId)}`);
+                const resp = await fetch(`${baseUrl}/api/drugs?q=${encodeURIComponent(groupId)}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: this.getProxyHeaders()
+                });
                 if (resp.ok) {
                     return await resp.text();
                 }
@@ -305,7 +332,8 @@ export class NetworkManager {
                 const baseUrl = this.getProxyBaseUrl();
                 const resp = await fetch(`${baseUrl}/api/report`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    headers: this.getProxyHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(params)
                 });
                 if (resp.status === 401 || resp.status === 403) {
@@ -393,29 +421,40 @@ export class NetworkManager {
         const doc = parser.parseFromString(htmlText, 'text/html');
 
         const extractOptions = (selector, fallbackDefault = 'all') => {
-            const select = doc.querySelector(selector);
+            let select = doc.querySelector(selector);
+            if (!select) {
+                const cleanName = selector.replace(/[^a-zA-Z0-9_]/g, '');
+                select = doc.querySelector(`select[id="${cleanName}"]`) || doc.querySelector(`select[name*="${cleanName}"]`);
+            }
             if (!select) return { options: [{ value: 'all', text: 'الكل' }], selectedValue: fallbackDefault };
 
             const options = Array.from(select.querySelectorAll('option')).map(opt => ({
                 value: opt.value.trim(),
                 text: opt.textContent.trim(),
                 selected: opt.hasAttribute('selected')
-            }));
+            })).filter(opt => opt.value !== '' || opt.text !== 'إختر');
+
+            if (options.length === 0) {
+                options.push({ value: 'all', text: 'الكل' });
+            }
 
             const selectedOpt = options.find(o => o.selected) || options[0];
+            let val = selectedOpt ? selectedOpt.value : fallbackDefault;
+            if (!val || val === '') val = fallbackDefault;
+
             return {
                 options,
-                selectedValue: selectedOpt ? selectedOpt.value : fallbackDefault
+                selectedValue: val
             };
         };
 
-        const storeData = extractOptions('select[name="store_id"]', '752');
-        const docData = extractOptions('select[name="doc_id"]', 'all');
-        const salesmanData = extractOptions('select[name="salesman_id"]', 'all');
-        const groupData = extractOptions('select[name="group_id"]', 'all');
-        const medData = extractOptions('select[name="med_id"]', 'all');
-        const stateData = extractOptions('select[name="state_id"]', 'all');
-        const taxData = extractOptions('select[name="tax_id"]', 'all');
+        const storeData = extractOptions('select[name="store_id"], #store_id', '752');
+        const docData = extractOptions('select[name="doc_id"], #doc_id', 'all');
+        const salesmanData = extractOptions('select[name="salesman_id"], #salesman_id', 'all');
+        const groupData = extractOptions('select[name="group_id"], #group_id', 'all');
+        const medData = extractOptions('select[name="med_id"], #med_id', 'all');
+        const stateData = extractOptions('select[name="state_id"], #state_id', 'all');
+        const taxData = extractOptions('select[name="tax_id"], #tax_id', 'all');
 
         return {
             stores: storeData.options,

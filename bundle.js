@@ -1251,6 +1251,19 @@ class NetworkManager {
         this.corsProxy = '';
         this.lastCredentials = null;
         this.retryCount = 0;
+        try {
+            this.sessionCookie = localStorage.getItem('kabaka_sindbad_cookie') || '';
+        } catch (_) {
+            this.sessionCookie = '';
+        }
+    }
+
+    getProxyHeaders(extraHeaders = {}) {
+        const headers = { ...extraHeaders };
+        if (this.sessionCookie) {
+            headers['X-Sindbad-Cookie'] = this.sessionCookie;
+        }
+        return headers;
     }
 
     static isSessionExpiredHtml(html) {
@@ -1389,6 +1402,10 @@ class NetworkManager {
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.success) {
+                        if (data.cookie) {
+                            this.sessionCookie = data.cookie;
+                            try { localStorage.setItem('kabaka_sindbad_cookie', data.cookie); } catch (_) {}
+                        }
                         return { success: true, method: 'local_proxy' };
                     } else {
                         throw new Error(data.message || 'فشل تسجيل الدخول في سندباد');
@@ -1438,7 +1455,13 @@ class NetworkManager {
             try {
                 this.onStatus({ step: 3, message: 'جلب قوائم الفلاتر من منصة سندباد...' });
                 const baseUrl = this.getProxyBaseUrl();
-                const resp = await fetch(`${baseUrl}/api/filters`);
+                const resp = await fetch(`${baseUrl}/api/filters`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: this.getProxyHeaders({
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    })
+                });
                 if (resp.status === 401 || resp.status === 403) {
                     const err = new Error('انتهت صلاحية جلسة تسجيل الدخول في سندباد (الكوكي غير صالح أو منتهي). يرجى تسجيل الدخول مجدداً لتجديد الكوكي.');
                     err.isSessionExpired = true;
@@ -1453,6 +1476,7 @@ class NetworkManager {
                     }
                     return text;
                 }
+                throw new Error(`استجاب خادم الفلاتر برمز خطأ (${resp.status})`);
             } catch (e) {
                 if (e.isSessionExpired) throw e;
                 console.warn('Local proxy filters fetch failed:', e);
@@ -1501,7 +1525,11 @@ class NetworkManager {
         if (await this.isLocalProxyAvailable()) {
             try {
                 const baseUrl = this.getProxyBaseUrl();
-                const resp = await fetch(`${baseUrl}/api/drugs?q=${encodeURIComponent(groupId)}`);
+                const resp = await fetch(`${baseUrl}/api/drugs?q=${encodeURIComponent(groupId)}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: this.getProxyHeaders()
+                });
                 if (resp.ok) {
                     return await resp.text();
                 }
@@ -1531,7 +1559,8 @@ class NetworkManager {
                 const baseUrl = this.getProxyBaseUrl();
                 const resp = await fetch(`${baseUrl}/api/report`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    headers: this.getProxyHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(params)
                 });
                 if (resp.status === 401 || resp.status === 403) {
@@ -1627,7 +1656,8 @@ class NetworkManager {
                 this.onStatus({ step: 4, message: 'جلب أصناف ومخزون المحل عبر البروكسي المحلي...' });
                 const resp = await fetch(`${baseUrl}/api/inventory`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    headers: this.getProxyHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         store_id: storeId,
                         group_id: groupId,
@@ -1680,29 +1710,40 @@ class NetworkManager {
         const doc = parser.parseFromString(htmlText, 'text/html');
 
         const extractOptions = (selector, fallbackDefault = 'all') => {
-            const select = doc.querySelector(selector);
+            let select = doc.querySelector(selector);
+            if (!select) {
+                const cleanName = selector.replace(/[^a-zA-Z0-9_]/g, '');
+                select = doc.querySelector(`select[id="${cleanName}"]`) || doc.querySelector(`select[name*="${cleanName}"]`);
+            }
             if (!select) return { options: [{ value: 'all', text: 'الكل' }], selectedValue: fallbackDefault };
 
             const options = Array.from(select.querySelectorAll('option')).map(opt => ({
                 value: opt.value.trim(),
                 text: opt.textContent.trim(),
                 selected: opt.hasAttribute('selected')
-            }));
+            })).filter(opt => opt.value !== '' || opt.text !== 'إختر');
+
+            if (options.length === 0) {
+                options.push({ value: 'all', text: 'الكل' });
+            }
 
             const selectedOpt = options.find(o => o.selected) || options[0];
+            let val = selectedOpt ? selectedOpt.value : fallbackDefault;
+            if (!val || val === '') val = fallbackDefault;
+
             return {
                 options,
-                selectedValue: selectedOpt ? selectedOpt.value : fallbackDefault
+                selectedValue: val
             };
         };
 
-        const storeData = extractOptions('select[name="store_id"]', '752');
-        const docData = extractOptions('select[name="doc_id"]', 'all');
-        const salesmanData = extractOptions('select[name="salesman_id"]', 'all');
-        const groupData = extractOptions('select[name="group_id"]', 'all');
-        const medData = extractOptions('select[name="med_id"]', 'all');
-        const stateData = extractOptions('select[name="state_id"]', 'all');
-        const taxData = extractOptions('select[name="tax_id"]', 'all');
+        const storeData = extractOptions('select[name="store_id"], #store_id', '752');
+        const docData = extractOptions('select[name="doc_id"], #doc_id', 'all');
+        const salesmanData = extractOptions('select[name="salesman_id"], #salesman_id', 'all');
+        const groupData = extractOptions('select[name="group_id"], #group_id', 'all');
+        const medData = extractOptions('select[name="med_id"], #med_id', 'all');
+        const stateData = extractOptions('select[name="state_id"], #state_id', 'all');
+        const taxData = extractOptions('select[name="tax_id"], #tax_id', 'all');
 
         return {
             stores: storeData.options,
@@ -4052,31 +4093,79 @@ class App {
     }
 
     async loadDynamicFilters() {
+        const refreshBtn = document.getElementById('btn-refresh-filters');
+        let origBtnContent = '';
+        if (refreshBtn) {
+            origBtnContent = refreshBtn.innerHTML;
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = `
+                <span class="inline-flex items-center gap-1.5 text-blue-700">
+                    <svg class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-blue-600 inline" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>جارٍ التحديث...</span>
+                </span>
+            `;
+        }
+
         try {
             const html = await this.network.fetchFiltersHTML();
             if (html) {
                 const filters = NetworkManager.parseFiltersHTML(html);
                 if (filters && filters.groups && filters.groups.length > 0) {
                     this.populateFilterDropdowns(filters);
+                    try {
+                        localStorage.setItem('kabaka_cached_real_filters', html);
+                    } catch (_) {}
                     this.showToast('تم تحديث خيارات الفروع والمجموعات والمستخدمين بنجاح من سندباد ✓', 'success');
                     return;
                 }
             }
+            throw new Error('لم يتم استقبال بيانات الفلاتر من منصة سندباد.');
         } catch (err) {
-            console.warn('Could not fetch dynamic filters, falling back to store defaults:', err);
-        }
+            console.warn('Could not fetch dynamic filters:', err);
+            if (err.isSessionExpired || (err.message && (err.message.includes('جلسة') || err.message.includes('الكوكي')))) {
+                this.handleSessionExpired('انتهت جلسة تسجيل الدخول في سندباد (الكوكي منتهي). تم تحويلك لتسجيل الدخول لتجديد الكوكي.');
+                return;
+            }
 
-        // Guaranteed fallback so dropdowns never fail or stay empty
-        const filters = NetworkManager.parseFiltersHTML(sampleFilterHTML);
-        this.populateFilterDropdowns(filters);
+            // 1. Check if we have cached real filters from previous successful fetch
+            const cachedHtml = localStorage.getItem('kabaka_cached_real_filters');
+            if (cachedHtml) {
+                const cachedFilters = NetworkManager.parseFiltersHTML(cachedHtml);
+                this.populateFilterDropdowns(cachedFilters);
+                this.showToast('تعذر الاتصال المباشر بسندباد، تم تحميل القوائم الحقيقية المحفوظة للمحل مؤقتاً', 'warning');
+                return;
+            }
+
+            // 2. If dropdowns already have options, DO NOT wipe them out with mock data!
+            const groupSelect = document.getElementById('filter-group-id');
+            if (groupSelect && groupSelect.options.length > 1) {
+                this.showToast('تعذر تحديث القوائم من سندباد (' + (err.message || 'خطأ اتصال') + ')، تم الإبقاء على القوائم الحالية دون تغيير', 'warning');
+                return;
+            }
+
+            // 3. Fallback only if completely blank
+            this.showToast('فشل جلب القوائم من سندباد: ' + (err.message || 'خطأ اتصال'), 'error');
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = origBtnContent || 'تحديث القوائم';
+            }
+        }
     }
 
     populateFilterDropdowns(filters) {
         const populate = (id, options, selectedVal) => {
             const el = document.getElementById(id);
             if (!el) return;
+            const currentVal = el.value;
+            const hasCurrentVal = options.some(opt => opt.value === currentVal);
+            const activeVal = hasCurrentVal && currentVal !== 'all' ? currentVal : selectedVal;
+
             el.innerHTML = options.map(opt => `
-                <option value="${opt.value}" ${opt.value === selectedVal || opt.selected ? 'selected' : ''}>
+                <option value="${opt.value}" ${opt.value === activeVal ? 'selected' : ''}>
                     ${opt.text}
                 </option>
             `).join('');

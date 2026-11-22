@@ -106,7 +106,7 @@ export default async function handler(req, res) {
                 }
             });
             const html = await resp.text();
-            const isFilters = html && (html.includes("store_id") || html.includes("doc_id") || html.includes("group_id"));
+            const isFilters = html && (html.includes("store_id") || html.includes("doc_id") || html.includes("group_id") || html.includes("salesman_id"));
             if (!isFilters && (!html || html.trim().length === 0 || html.includes('login.php') || html.includes('type="password"'))) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 return res.status(401).json({

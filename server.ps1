@@ -105,7 +105,13 @@ while ($listener.IsListening) {
         # 2. API: Fetch Dynamic Filters (salez_report1.php)
         if ($localPath -eq 'api/filters') {
             try {
-                $htmlOutput = curl.exe -s -L -b $cookieFile -c $cookieFile @headers `
+                $clientCookie = $request.Headers["X-Sindbad-Cookie"]
+                $cookieArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($clientCookie)) {
+                    $cookieArgs = @("-H", "Cookie: $clientCookie")
+                }
+
+                $htmlOutput = curl.exe -s -L -b $cookieFile -c $cookieFile @headers @cookieArgs `
                     -H "Referer: https://siindbad.com/sys/app/index.php" `
                     "https://siindbad.com/sys/app/salez_report1.php"
 
@@ -137,9 +143,14 @@ while ($listener.IsListening) {
         # 3. API: Fetch Drugs by Group (get_drugs.php?q=...)
         if ($localPath -eq 'api/drugs') {
             try {
+                $clientCookie = $request.Headers["X-Sindbad-Cookie"]
+                $cookieArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($clientCookie)) {
+                    $cookieArgs = @("-H", "Cookie: $clientCookie")
+                }
                 $q = $request.QueryString["q"]
                 $url = "https://siindbad.com/sys/app/get_drugs.php?q=$([uri]::EscapeDataString($q))"
-                $drugsHtml = curl.exe -s -b $cookieFile -c $cookieFile @headers `
+                $drugsHtml = curl.exe -s -b $cookieFile -c $cookieFile @headers @cookieArgs `
                     -H "Referer: https://siindbad.com/sys/app/salez_report1.php" $url
 
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($drugsHtml)
@@ -181,7 +192,13 @@ while ($listener.IsListening) {
                     "submit=$([uri]::EscapeDataString('إرسال'))"
                 ) -join '&'
 
-                $reportHtml = curl.exe -s -L -b $cookieFile -c $cookieFile -X POST @headers `
+                $clientCookie = $request.Headers["X-Sindbad-Cookie"]
+                $cookieArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($clientCookie)) {
+                    $cookieArgs = @("-H", "Cookie: $clientCookie")
+                }
+
+                $reportHtml = curl.exe -s -L -b $cookieFile -c $cookieFile -X POST @headers @cookieArgs `
                     -H "Content-Type: application/x-www-form-urlencoded" `
                     -H "Origin: https://siindbad.com" `
                     -H "Referer: https://siindbad.com/sys/app/salez_report1.php" `
@@ -240,7 +257,13 @@ while ($listener.IsListening) {
                     "submit=$([uri]::EscapeDataString('إرسال'))"
                 ) -join '&'
 
-                $medicaHtml = curl.exe -s -b $cookieFile -c $cookieFile -X POST @headers `
+                $clientCookie = $request.Headers["X-Sindbad-Cookie"]
+                $cookieArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($clientCookie)) {
+                    $cookieArgs = @("-H", "Cookie: $clientCookie")
+                }
+
+                $medicaHtml = curl.exe -s -b $cookieFile -c $cookieFile @cookieArgs -X POST @headers `
                     -H "Content-Type: application/x-www-form-urlencoded" `
                     -H "Origin: https://siindbad.com" `
                     -H "Referer: https://siindbad.com/sys/app/medica_report1.php" `
